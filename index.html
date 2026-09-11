@@ -757,15 +757,30 @@ function showEmailBanner(mailtoLink, collectorName) {
     const banner = document.createElement('div');
     banner.id = 'emailBanner';
     banner.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1A1D27;border:1px solid #4F7CFF;border-radius:12px;padding:20px;z-index:9999;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
-    banner.innerHTML = 
-        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:12px">✅ Feedback sent to ' + collectorName + '</div>' +
-        '<a href="' + mailtoLink + '" target="_blank" rel="noopener noreferrer" style="display:block;background:#4F7CFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center">📧 Send Email Notification</a>' +
-        '<div style="font-size:11px;color:#7B8099;margin-top:8px;text-align:center">Click to open email · Auto-closes in 30s</div>';
+    
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:12px';
+    title.textContent = '✅ Feedback sent to ' + collectorName;
+    
+    const emailBtn = document.createElement('button');
+    emailBtn.textContent = '📧 Send Email Notification';
+    emailBtn.style.cssText = 'display:block;width:100%;background:#4F7CFF;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer';
+    emailBtn.addEventListener('click', function() {
+        window.open(mailtoLink, '_blank', 'noopener,noreferrer');
+    });
+    
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:11px;color:#7B8099;margin-top:8px;text-align:center';
+    hint.textContent = 'Click to open email · Auto-closes in 30s';
     
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '×';
     closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;color:#7B8099;cursor:pointer;font-size:20px;line-height:1';
     closeBtn.onclick = () => banner.remove();
+    
+    banner.appendChild(title);
+    banner.appendChild(emailBtn);
+    banner.appendChild(hint);
     banner.appendChild(closeBtn);
     
     document.body.appendChild(banner);
