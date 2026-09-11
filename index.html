@@ -435,7 +435,11 @@ function renderTrainerFeedback() {
             <div class="ph"><div class="pt">Send Feedback</div><div class="ps">Upload a feedback video for a collector</div></div>
             <div class="card card-max">
                 <div class="fg"><label class="lbl">COLLECTOR</label>
-                    <select id="fbCol"><option value="">Select a collector</option>${opts}</select></div>
+                    <input type="text" id="fbColSearch" placeholder="Search by name or HR code..." oninput="filterCollectors(this.value)" autocomplete="off" />
+                    <div id="fbColDropdown" style="display:none;position:relative;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:8px;max-height:200px;overflow-y:auto;margin-top:4px"></div>
+                    <input type="hidden" id="fbCol" />
+                    <div id="fbColSelected" style="display:none;margin-top:6px;font-size:12px;color:var(--accent)"></div>
+                </div>
                 <div class="fg"><label class="lbl">FEEDBACK DATE</label><input type="date" id="fbDate" value="${today()}" /></div>
                 <div class="fg"><label class="lbl">VIDEO URL (Google Drive Preview)</label>
                     <input type="text" id="fbUrl" placeholder="https://drive.google.com/file/d/.../preview" /></div>
@@ -455,6 +459,42 @@ function renderTrainerFeedback() {
 }
 
 function setFilter(f) { S.filter = f; renderTrainerFeedback(); }
+
+function filterCollectors(query) {
+    const dropdown = el('fbColDropdown');
+    const hidden = el('fbCol');
+    
+    if (!query.trim()) { dropdown.style.display = 'none'; return; }
+    
+    const q = query.toLowerCase();
+    const matches = S.collectors.filter(c => 
+        c.full_name.toLowerCase().includes(q) || c.hr_code.toLowerCase().includes(q)
+    ).slice(0, 10);
+    
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:13px">No results found</div>';
+    } else {
+        dropdown.innerHTML = matches.map(c => `
+            <div onclick="selectCollector('${c.id}','${c.full_name}','${c.hr_code}')" 
+                style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+                onmouseover="this.style.background='var(--surface-hover)'" 
+                onmouseout="this.style.background=''">
+                <strong>${c.full_name}</strong> <span style="color:var(--text-muted)">${c.hr_code}</span>
+            </div>
+        `).join('');
+    }
+    dropdown.style.display = 'block';
+    hidden.value = '';
+    el('fbColSelected').style.display = 'none';
+}
+
+function selectCollector(id, name, hrCode) {
+    el('fbCol').value = id;
+    el('fbColSearch').value = name + ' (' + hrCode + ')';
+    el('fbColDropdown').style.display = 'none';
+    el('fbColSelected').textContent = '✓ ' + name + ' selected';
+    el('fbColSelected').style.display = 'block';
+}
 
 async function sendFb() {
     const col = el('fbCol').value, date = el('fbDate').value, url = el('fbUrl').value;
