@@ -314,7 +314,10 @@ function doLoginStep2() {
 // ── Collector ────────────────────────────────────────────────────────────────
 async function loadCollector() {
     el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
-    S.feedbacks = await fetchCollectorFeedbacks(S.user.hr_code);
+    const hrCode = S.user.hr_code;
+    const { data, error } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
+    alert('HR Code: ' + hrCode + '\nFeedbacks found: ' + (data ? data.length : 0) + '\nError: ' + (error ? error.message : 'none'));
+    S.feedbacks = data || [];
     renderCollector();
 }
 
