@@ -615,14 +615,17 @@ async function openCollectorProfile(hrCode) {
     el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
     const collector = S.collectors.find(c => c.hr_code === hrCode);
     const { data: fbs, error } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
-    alert('HR: ' + hrCode + ' | Feedbacks: ' + (fbs ? fbs.length : 0) + ' | Error: ' + (error ? error.message : 'none'));
-    renderCollectorProfile(collector, fbs || []);
+    try {
+        renderCollectorProfile(collector, fbs || []);
+    } catch(e) {
+        el('app').innerHTML = navHtml() + `<div class="page"><div class="err" style="color:red;padding:20px">Render Error: ${e.message}</div></div>`;
+    }
 }
 
 function renderCollectorProfile(collector, fbs) {
     const total = fbs.length;
-    const seen = fbs.filter(f => f.is_seen).length;
-    const disputed = fbs.filter(f => f.is_disputed).length;
+    const seen = fbs.filter(f => f.is_seen === true).length;
+    const disputed = fbs.filter(f => f.is_disputed === true).length;
     const unseen = total - seen;
 
     const fbRows = fbs.map(f => {
@@ -630,16 +633,19 @@ function renderCollectorProfile(collector, fbs) {
             ? '<span class="tag tag-s">Seen</span>' 
             : '<span class="tag tag-n">Not Seen</span>';
         const disputeTag = f.is_disputed 
-            ? `<span class="tag tag-d" title="${f.dispute_reason||''}">Disputed ⚠️</span>` 
+            ? '<span class="tag tag-d">Disputed</span>' 
             : '<span style="color:var(--text-dim)">—</span>';
-        return `<tr>
-            <td>${fmtDate(f.feedback_date)}</td>
-            <td>${f.feedback_title || '—'}</td>
-            <td>${f.trainer_name || '—'}</td>
-            <td>${statusTag}</td>
-            <td>${disputeTag}</td>
-            ${f.is_disputed ? `<td style="color:var(--dispute);font-size:12px">${f.dispute_reason||'—'}</td>` : '<td style="color:var(--text-dim)">—</td>'}
-        </tr>`;
+        const reasonTd = f.is_disputed 
+            ? `<td style="color:var(--dispute);font-size:12px">${f.dispute_reason || '—'}</td>` 
+            : '<td style="color:var(--text-dim)">—</td>';
+        return '<tr>' +
+            `<td>${fmtDate(f.feedback_date)}</td>` +
+            `<td>${f.feedback_title || '—'}</td>` +
+            `<td>${f.trainer_name || '—'}</td>` +
+            `<td>${statusTag}</td>` +
+            `<td>${disputeTag}</td>` +
+            reasonTd +
+            '</tr>';
     }).join('');
 
     el('app').innerHTML = navHtml() + `
