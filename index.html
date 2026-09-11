@@ -531,7 +531,7 @@ async function sendFb() {
         if (collectorEmail.includes('gmail.com')) {
             mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(collectorEmail) + '&su=' + emailSubject + '&body=' + emailBody;
         } else {
-            mailtoLink = 'https://outlook.office365.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody;
+            mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
         }
         
         S.feedbacks = await fetchAllFeedbacks();
