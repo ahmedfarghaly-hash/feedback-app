@@ -185,10 +185,11 @@ async function fetchCollectors() {
     return data || [];
 }
 
-async function doSendFeedback(collectorId, trainerName, date, videoUrl) {
+async function doSendFeedback(collectorId, trainerName, date, videoUrl, title) {
     const { error } = await sb.from('feedbacks').insert({
         collector_id: collectorId, trainer_name: trainerName,
         feedback_date: date, video_url: videoUrl,
+        feedback_title: title,
         is_seen: false, is_disputed: false, dispute_reason: ''
     });
     return !error;
@@ -314,10 +315,7 @@ function doLoginStep2() {
 // ── Collector ────────────────────────────────────────────────────────────────
 async function loadCollector() {
     el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
-    const hrCode = S.user.hr_code;
-    const { data, error } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
-    alert('HR Code: ' + hrCode + '\nFeedbacks found: ' + (data ? data.length : 0) + '\nError: ' + (error ? error.message : 'none'));
-    S.feedbacks = data || [];
+    S.feedbacks = await fetchCollectorFeedbacks(S.user.hr_code);
     renderCollector();
 }
 
@@ -354,9 +352,10 @@ function fbCard(f, isNew) {
     const video = f.video_url ? `<iframe src="${f.video_url}" class="vframe" data-id="${f.id}" data-seen="${f.is_seen}" allowfullscreen></iframe>` : '';
     const reason = f.is_disputed && f.dispute_reason ? `<div class="dr"><strong>Dispute reason:</strong> ${f.dispute_reason}</div>` : '';
     const dBtn = !f.is_disputed ? `<div class="fe"><button class="bs bs-dispute" onclick="openDispute('${f.id}')">Dispute</button></div>` : '';
+    const titleHtml = f.feedback_title ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">${f.feedback_title}</div>` : '';
     return `<div class="${cls}">
         <div class="ch"><div><div class="ct">${fmtDate(f.feedback_date)}</div><div class="cd">From: ${f.trainer_name||'Trainer'}</div></div><div>${tag}</div></div>
-        ${video}${reason}${dBtn}
+        ${titleHtml}${video}${reason}${dBtn}
     </div>`;
 }
 
@@ -445,6 +444,7 @@ function renderTrainerFeedback() {
                     <div id="fbColSelected" style="display:none;margin-top:6px;font-size:12px;color:var(--accent)"></div>
                 </div>
                 <div class="fg"><label class="lbl">FEEDBACK DATE</label><input type="date" id="fbDate" value="${today()}" /></div>
+                <div class="fg"><label class="lbl">FEEDBACK TITLE</label><input type="text" id="fbTitle" placeholder="e.g. Call Review - Customer Objection" /></div>
                 <div class="fg"><label class="lbl">VIDEO URL (Google Drive Preview)</label>
                     <input type="text" id="fbUrl" placeholder="https://drive.google.com/file/d/.../preview" /></div>
                 <div id="fberr" class="err" style="display:none"></div>
@@ -505,15 +505,15 @@ function filterCollectors(query) {
 }
 
 async function sendFb() {
-    const col = _selectedCollectorHR, date = el('fbDate').value, url = el('fbUrl').value;
-    if (!col || !date || !url) { el('fberr').textContent='Please fill in all fields'; show('fberr'); return; }
+    const col = _selectedCollectorHR, date = el('fbDate').value, url = el('fbUrl').value, title = el('fbTitle').value;
+    if (!col || !date || !url || !title) { el('fberr').textContent='Please fill in all fields'; show('fberr'); return; }
     hide('fberr');
     const btn = document.querySelector('#app .bs-primary');
     btn.textContent = 'Sending...'; btn.disabled = true;
-    const ok = await doSendFeedback(col, S.user.full_name, date, url);
+    const ok = await doSendFeedback(col, S.user.full_name, date, url, title);
     btn.textContent = 'Send Feedback'; btn.disabled = false;
     if (ok) {
-        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; el('fbUrl').value = '';
+        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; el('fbUrl').value = ''; el('fbTitle').value = '';
         show('fbsuc'); setTimeout(() => hide('fbsuc'), 3000);
         S.feedbacks = await fetchAllFeedbacks();
         renderTrainerFeedback();
