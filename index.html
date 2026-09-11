@@ -612,14 +612,50 @@ function renderTrainerProfiles(allFbs) {
 
 async function openCollectorProfile(hrCode) {
     S.view = 'collector_profile';
-    el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
+    S._profileHR = hrCode;
     const collector = S.collectors.find(c => c.hr_code === hrCode);
-    const { data: fbs, error } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
-    try {
-        renderCollectorProfile(collector, fbs || []);
-    } catch(e) {
-        el('app').innerHTML = navHtml() + `<div class="page"><div class="err" style="color:red;padding:20px">Render Error: ${e.message}</div></div>`;
+    const { data: fbs } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
+    const safeFbs = fbs || [];
+    const total = safeFbs.length;
+    const seen = safeFbs.filter(f => f.is_seen === true).length;
+    const disputed = safeFbs.filter(f => f.is_disputed === true).length;
+    const unseen = total - seen;
+    
+    let rows = '';
+    for (let i = 0; i < safeFbs.length; i++) {
+        const f = safeFbs[i];
+        const st = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
+        const dt = f.is_disputed ? '<span class="tag tag-d">Disputed</span>' : '<span style="color:var(--text-dim)">—</span>';
+        const rs = f.is_disputed ? (f.dispute_reason || '—') : '—';
+        rows += '<tr>';
+        rows += '<td>' + fmtDate(f.feedback_date) + '</td>';
+        rows += '<td>' + (f.feedback_title || '—') + '</td>';
+        rows += '<td>' + (f.trainer_name || '—') + '</td>';
+        rows += '<td>' + st + '</td>';
+        rows += '<td>' + dt + '</td>';
+        rows += '<td style="font-size:12px;color:var(--text-muted)">' + rs + '</td>';
+        rows += '</tr>';
     }
+    
+    const name = collector ? collector.full_name : hrCode;
+    const tableHtml = total === 0 
+        ? '<div class="empty">No feedback sent yet</div>'
+        : '<div class="tw"><table><thead><tr><th>DATE</th><th>TITLE</th><th>TRAINER</th><th>STATUS</th><th>DISPUTE</th><th>REASON</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    
+    const html = navHtml() + 
+        '<div class="page-wide">' +
+        '<button class="bs bs-outline" onclick="nav('trainer_profiles')" style="margin-bottom:16px">Back to Profiles</button>' +
+        '<div class="ph"><div class="pt">' + name + '</div><div class="ps">' + hrCode + '</div></div>' +
+        '<div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap">' +
+        '<div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0"><div style="font-size:28px;font-weight:700">' + total + '</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">TOTAL</div></div>' +
+        '<div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0"><div style="font-size:28px;font-weight:700;color:var(--green)">' + seen + '</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">SEEN</div></div>' +
+        '<div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0"><div style="font-size:28px;font-weight:700;color:var(--accent)">' + unseen + '</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">NOT SEEN</div></div>' +
+        '<div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0"><div style="font-size:28px;font-weight:700;color:var(--dispute)">' + disputed + '</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">DISPUTED</div></div>' +
+        '</div>' +
+        tableHtml +
+        '</div>';
+    
+    el('app').innerHTML = html;
 }
 
 function renderCollectorProfile(collector, fbs) {
