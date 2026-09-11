@@ -531,10 +531,8 @@ async function sendFb() {
         let mailtoLink;
         if (collectorEmail.includes('gmail.com')) {
             mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(collectorEmail) + '&su=' + emailSubject + '&body=' + emailBody;
-        } else if (collectorEmail.includes('outlook.') || collectorEmail.includes('hotmail.') || collectorEmail.includes('live.')) {
-            mailtoLink = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody + '&bodyType=html';
         } else {
-            mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
+            mailtoLink = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody;
         }
         
         S.feedbacks = await fetchAllFeedbacks();
