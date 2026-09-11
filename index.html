@@ -163,7 +163,8 @@ async function loginUser(hrCode) {
 }
 
 async function fetchCollectorFeedbacks(collectorId) {
-    const { data } = await sb.from('feedbacks').select('*').eq('collector_id', collectorId).order('created_at', { ascending: false });
+    const { data, error } = await sb.from('feedbacks').select('*').eq('collector_id', collectorId);
+    if (error) console.error('fetch error:', error);
     return data || [];
 }
 
