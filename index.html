@@ -527,7 +527,7 @@ async function sendFb() {
         const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
         const emailSubject = encodeURIComponent('New Feedback Available - ' + fbTitle);
         const emailBody = encodeURIComponent('Hi ' + collectorName + ',\n\nYou have a new feedback waiting for you.\n\nTitle: ' + fbTitle + '\n\nPlease check your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
-        const mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
+        const mailtoLink = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody;
         
         S.feedbacks = await fetchAllFeedbacks();
         renderTrainerFeedback();
