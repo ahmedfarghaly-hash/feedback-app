@@ -529,12 +529,17 @@ async function sendFb() {
         const emailBody = encodeURIComponent('Hi ' + collectorName + ',\n\nYou have a new feedback waiting for you.\n\nTitle: ' + fbTitle + '\n\nPlease check your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
         const mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
         
-        el('fberr').style.display = 'none';
-        el('fbsuc').innerHTML = 'Feedback sent! <a href="' + mailtoLink + '" target="_blank" style="color:var(--accent);font-weight:600;margin-left:8px">📧 Send Email Notification</a>';
-        show('fbsuc');
-        setTimeout(() => { el('fbsuc').innerHTML = 'Feedback sent!'; hide('fbsuc'); }, 10000);
         S.feedbacks = await fetchAllFeedbacks();
         renderTrainerFeedback();
+        // Show email notification after render
+        setTimeout(() => {
+            const sucEl = el('fbsuc');
+            if (sucEl) {
+                sucEl.innerHTML = 'Feedback sent! <a href="' + mailtoLink + '" target="_blank" style="color:var(--accent);font-weight:600;margin-left:8px">📧 Send Email Notification</a>';
+                sucEl.style.display = 'block';
+                setTimeout(() => { if(el('fbsuc')) { el('fbsuc').innerHTML = 'Feedback sent!'; el('fbsuc').style.display = 'none'; } }, 15000);
+            }
+        }, 300);
     } else { el('fberr').textContent='Error sending feedback'; show('fberr'); }
 }
 
