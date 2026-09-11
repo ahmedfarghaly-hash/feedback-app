@@ -618,6 +618,19 @@ function renderTrainerProfiles(allFbs) {
     el('app').innerHTML = navHtml() + `
         <div class="page-wide">
             <div class="ph"><div class="pt">Collector Profiles</div><div class="ps">Click on a collector to see their full profile</div></div>
+            <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+                <input type="text" id="profileSearch" placeholder="Search by name or HR code..." 
+                    oninput="filterProfiles()" 
+                    style="flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none"/>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input type="date" id="filterDateFrom" onchange="filterProfiles()" 
+                        style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none"/>
+                    <span style="color:var(--text-muted);font-size:13px">to</span>
+                    <input type="date" id="filterDateTo" onchange="filterProfiles()"
+                        style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none"/>
+                    <button onclick="clearFilters()" class="bs bs-outline">Clear</button>
+                </div>
+            </div>
             <div class="tw">
                 <table>
                     <thead><tr>
@@ -625,7 +638,7 @@ function renderTrainerProfiles(allFbs) {
                         <th>TOTAL FEEDBACK</th><th>SEEN</th>
                         <th>NOT SEEN</th><th>DISPUTED</th>
                     </tr></thead>
-                    <tbody>${rows}</tbody>
+                    <tbody id="profilesTableBody">${rows}</tbody>
                 </table>
             </div>
         </div>`;
@@ -745,6 +758,27 @@ function renderCollectorProfile(collector, fbs) {
                     <tbody>${fbRows}</tbody>
                 </table></div>`}
         </div>`;
+}
+
+function filterProfiles() {
+    const search = (el('profileSearch') ? el('profileSearch').value.toLowerCase() : '');
+    const dateFrom = el('filterDateFrom') ? el('filterDateFrom').value : '';
+    const dateTo = el('filterDateTo') ? el('filterDateTo').value : '';
+    
+    const rows = document.querySelectorAll('#profilesTableBody tr');
+    rows.forEach(row => {
+        const hrCode = row.cells[0] ? row.cells[0].textContent.toLowerCase() : '';
+        const name = row.cells[1] ? row.cells[1].textContent.toLowerCase() : '';
+        const matchSearch = !search || hrCode.includes(search) || name.includes(search);
+        row.style.display = matchSearch ? '' : 'none';
+    });
+}
+
+function clearFilters() {
+    if(el('profileSearch')) el('profileSearch').value = '';
+    if(el('filterDateFrom')) el('filterDateFrom').value = '';
+    if(el('filterDateTo')) el('filterDateTo').value = '';
+    filterProfiles();
 }
 
 function showEmailBanner(mailtoLink, collectorName) {
