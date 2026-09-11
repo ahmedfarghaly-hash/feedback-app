@@ -527,7 +527,14 @@ async function sendFb() {
         const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
         const emailSubject = encodeURIComponent('New Feedback Available - ' + fbTitle);
         const emailBody = encodeURIComponent('Hi ' + collectorName + ',\n\nYou have a new feedback waiting for you.\n\nTitle: ' + fbTitle + '\n\nPlease check your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
-        const mailtoLink = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody;
+        let mailtoLink;
+        if (collectorEmail.includes('gmail.com')) {
+            mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(collectorEmail) + '&su=' + emailSubject + '&body=' + emailBody;
+        } else if (collectorEmail.includes('outlook.') || collectorEmail.includes('hotmail.') || collectorEmail.includes('live.')) {
+            mailtoLink = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody;
+        } else {
+            mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
+        }
         
         S.feedbacks = await fetchAllFeedbacks();
         renderTrainerFeedback();
