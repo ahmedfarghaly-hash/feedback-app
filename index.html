@@ -572,9 +572,12 @@ async function addCol() {
 // ── Trainer Profiles ────────────────────────────────────────────────────────
 async function loadTrainerProfiles() {
     S.view = 'trainer_profiles';
+    el('app').innerHTML = navHtml() + '<div class="page"><div class="loading">Loading...</div></div>';
     S.collectors = await fetchCollectors();
     const allFbs = await fetchAllFeedbacks();
-    renderTrainerProfiles(allFbs);
+    if (S.view === 'trainer_profiles') {
+        renderTrainerProfiles(allFbs);
+    }
 }
 
 function renderTrainerProfiles(allFbs) {
