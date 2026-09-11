@@ -762,12 +762,12 @@ function showEmailBanner(mailtoLink, collectorName) {
     title.style.cssText = 'font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:12px';
     title.textContent = '✅ Feedback sent to ' + collectorName;
     
-    const emailBtn = document.createElement('button');
+    const emailBtn = document.createElement('a');
     emailBtn.textContent = '📧 Send Email Notification';
-    emailBtn.style.cssText = 'display:block;width:100%;background:#4F7CFF;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer';
-    emailBtn.addEventListener('click', function() {
-        window.open(mailtoLink, '_blank', 'noopener,noreferrer');
-    });
+    emailBtn.href = mailtoLink;
+    emailBtn.target = '_blank';
+    emailBtn.rel = 'noopener noreferrer';
+    emailBtn.style.cssText = 'display:block;width:100%;background:#4F7CFF;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer;text-decoration:none;box-sizing:border-box';
     
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:11px;color:#7B8099;margin-top:8px;text-align:center';
