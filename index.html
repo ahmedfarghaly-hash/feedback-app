@@ -170,11 +170,11 @@ async function fetchCollectorFeedbacks(collectorId) {
 async function fetchAllFeedbacks() {
     const { data: fbs } = await sb.from('feedbacks').select('*').order('created_at', { ascending: false });
     if (!fbs || fbs.length === 0) return [];
-    const ids = [...new Set(fbs.map(f => f.collector_id).filter(Boolean))];
+    const hrCodes = [...new Set(fbs.map(f => f.collector_id).filter(Boolean))];
     let profileMap = {};
-    if (ids.length > 0) {
-        const { data: profiles } = await sb.from('profiles').select('id,full_name,hr_code').in('id', ids);
-        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+    if (hrCodes.length > 0) {
+        const { data: profiles } = await sb.from('profiles').select('full_name,hr_code').in('hr_code', hrCodes);
+        (profiles || []).forEach(p => { profileMap[p.hr_code] = p; });
     }
     return fbs.map(f => ({ ...f, _profile: profileMap[f.collector_id] || null }));
 }
@@ -313,7 +313,7 @@ function doLoginStep2() {
 // ── Collector ────────────────────────────────────────────────────────────────
 async function loadCollector() {
     el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
-    S.feedbacks = await fetchCollectorFeedbacks(S.user.id);
+    S.feedbacks = await fetchCollectorFeedbacks(S.user.hr_code);
     renderCollector();
 }
 
@@ -475,7 +475,7 @@ function filterCollectors(query) {
         dropdown.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:13px">No results found</div>';
     } else {
         dropdown.innerHTML = matches.map(c => `
-            <div onclick="selectCollector('${c.id}','${c.full_name}','${c.hr_code}')" 
+            <div onclick="selectCollector('${c.hr_code}','${c.full_name}','${c.hr_code}')" 
                 style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
                 onmouseover="this.style.background='var(--surface-hover)'" 
                 onmouseout="this.style.background=''">
