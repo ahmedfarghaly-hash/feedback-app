@@ -415,23 +415,6 @@ async function loadTrainerFeedback() {
 }
 
 function renderTrainerFeedback() {
-    // Show email notification if pending
-    if (S._pendingMailto) {
-        const mailto = S._pendingMailto;
-        const name = S._pendingCollectorName;
-        S._pendingMailto = null;
-        S._pendingCollectorName = null;
-        setTimeout(() => {
-            const banner = document.createElement('div');
-            banner.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1A1D27;border:1px solid #4F7CFF;border-radius:12px;padding:16px 20px;z-index:999;max-width:340px;box-shadow:0 4px 24px rgba(0,0,0,0.4)';
-            banner.innerHTML = '<div style="font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:8px">✅ Feedback sent to ' + name + '</div>' +
-                '<a href="' + mailto + '" target="_blank" style="display:inline-block;background:#4F7CFF;color:#fff;text-decoration:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600">📧 Send Email Notification</a>' +
-                '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#7B8099;cursor:pointer;font-size:18px;position:absolute;top:8px;right:12px">×</button>';
-            document.body.appendChild(banner);
-            setTimeout(() => { if(banner.parentElement) banner.remove(); }, 20000);
-        }, 100);
-    }
-
     const filtered = S.filter === 'all' ? S.feedbacks
         : S.filter === 'unseen' ? S.feedbacks.filter(f => !f.is_seen)
         : S.feedbacks.filter(f => f.is_disputed);
@@ -547,9 +530,8 @@ async function sendFb() {
         const mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
         
         S.feedbacks = await fetchAllFeedbacks();
-        S._pendingMailto = mailtoLink;
-        S._pendingCollectorName = collectorName;
         renderTrainerFeedback();
+        showEmailBanner(mailtoLink, collectorName);
     } else { el('fberr').textContent='Error sending feedback'; show('fberr'); }
 }
 
@@ -758,6 +740,28 @@ function renderCollectorProfile(collector, fbs) {
                     <tbody>${fbRows}</tbody>
                 </table></div>`}
         </div>`;
+}
+
+function showEmailBanner(mailtoLink, collectorName) {
+    const existing = document.getElementById('emailBanner');
+    if (existing) existing.remove();
+    
+    const banner = document.createElement('div');
+    banner.id = 'emailBanner';
+    banner.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1A1D27;border:1px solid #4F7CFF;border-radius:12px;padding:20px;z-index:9999;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
+    banner.innerHTML = 
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:12px">✅ Feedback sent to ' + collectorName + '</div>' +
+        '<a href="' + mailtoLink + '" style="display:block;background:#4F7CFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center">📧 Send Email Notification</a>' +
+        '<div style="font-size:11px;color:#7B8099;margin-top:8px;text-align:center">Click to open email · Auto-closes in 30s</div>';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;color:#7B8099;cursor:pointer;font-size:20px;line-height:1';
+    closeBtn.onclick = () => banner.remove();
+    banner.appendChild(closeBtn);
+    
+    document.body.appendChild(banner);
+    setTimeout(() => { if(document.getElementById('emailBanner')) banner.remove(); }, 30000);
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
