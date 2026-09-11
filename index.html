@@ -759,7 +759,7 @@ function showEmailBanner(mailtoLink, collectorName) {
     banner.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1A1D27;border:1px solid #4F7CFF;border-radius:12px;padding:20px;z-index:9999;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
     banner.innerHTML = 
         '<div style="font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:12px">✅ Feedback sent to ' + collectorName + '</div>' +
-        '<a href="' + mailtoLink + '" target="_blank" rel="noopener noreferrer" onclick="window.open(\'' + mailtoLink + '\', \'_blank\'); return false;" style="display:block;background:#4F7CFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center">📧 Send Email Notification</a>' +
+        '<a href="' + mailtoLink + '" target="_blank" rel="noopener noreferrer" style="display:block;background:#4F7CFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center">📧 Send Email Notification</a>' +
         '<div style="font-size:11px;color:#7B8099;margin-top:8px;text-align:center">Click to open email · Auto-closes in 30s</div>';
     
     const closeBtn = document.createElement('button');
