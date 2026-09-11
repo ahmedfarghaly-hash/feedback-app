@@ -169,7 +169,7 @@ async function fetchCollectorFeedbacks(collectorId) {
 }
 
 async function fetchAllFeedbacks() {
-    const { data: fbs } = await sb.from('feedbacks').select('*').order('created_at', { ascending: false });
+    const { data: fbs } = await sb.from('feedbacks').select('*');
     if (!fbs || fbs.length === 0) return [];
     const hrCodes = [...new Set(fbs.map(f => f.collector_id).filter(Boolean))];
     let profileMap = {};
