@@ -96,9 +96,9 @@
         .fe { display: flex; justify-content: flex-end; }
         
         /* Table */
-        .tw { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+        .tw { border-radius: 12px; overflow: auto; border: 1px solid var(--border); max-height: 70vh; }
         table { width: 100%; border-collapse: collapse; background: var(--surface); }
-        th { text-align: left; padding: 10px 14px; font-size: 11px; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+        th { text-align: left; padding: 10px 14px; font-size: 11px; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index: 10; }
         td { padding: 11px 14px; font-size: 13px; border-bottom: 1px solid rgba(42,46,64,0.5); }
         tr:last-child td { border-bottom: none; }
         
