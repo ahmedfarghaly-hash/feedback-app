@@ -526,13 +526,12 @@ async function sendFb() {
         // Show success with email button
         const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
         const emailSubject = encodeURIComponent('New Feedback Available - ' + fbTitle);
-        const emailBodyHtml = '<p>Hi ' + collectorName + ',</p><p>You have a new feedback waiting for you.</p><p><strong>Title:</strong> ' + fbTitle + '</p><p>Please check your feedback here:<br><a href="' + appUrl + '">Click here to view your feedback</a></p><p>Best regards,<br>' + S.user.full_name + '</p>';
-        const emailBody = encodeURIComponent(emailBodyHtml);
+        const emailBody = encodeURIComponent('Hi ' + collectorName + ',\n\nYou have a new feedback waiting for you.\n\nTitle: ' + fbTitle + '\n\nCheck your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
         let mailtoLink;
         if (collectorEmail.includes('gmail.com')) {
             mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(collectorEmail) + '&su=' + emailSubject + '&body=' + emailBody;
         } else {
-            mailtoLink = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody;
+            mailtoLink = 'https://outlook.office365.com/mail/deeplink/compose?to=' + encodeURIComponent(collectorEmail) + '&subject=' + emailSubject + '&body=' + emailBody;
         }
         
         S.feedbacks = await fetchAllFeedbacks();
