@@ -221,6 +221,7 @@ function navHtml() {
     const links = isT ? `
         <button class="nav-link ${S.view==='trainer_feedback'?'active':''}" onclick="nav('trainer_feedback')">Feedback</button>
         <button class="nav-link ${S.view==='trainer_collectors'?'active':''}" onclick="nav('trainer_collectors')">Collectors</button>
+        <button class="nav-link ${S.view==='trainer_profiles'?'active':''}" onclick="nav('trainer_profiles')">Profiles</button>
     ` : '';
     return `<nav class="nav">
         <div class="row"><span class="nav-brand">FEEDBACK</span><div class="nav-links">${links}</div></div>
@@ -235,6 +236,7 @@ function nav(view) {
     S.view = view;
     if (view === 'trainer_feedback') loadTrainerFeedback();
     else if (view === 'trainer_collectors') loadTrainerCollectors();
+    else if (view === 'trainer_profiles') loadTrainerProfiles();
 }
 
 function logout() {
@@ -565,6 +567,116 @@ async function addCol() {
         S.collectors = await fetchCollectors();
         renderTrainerCollectors();
     } else { el('colerr').textContent='HR Code already exists'; show('colerr'); }
+}
+
+// ── Trainer Profiles ────────────────────────────────────────────────────────
+async function loadTrainerProfiles() {
+    S.view = 'trainer_profiles';
+    S.collectors = await fetchCollectors();
+    const allFbs = await fetchAllFeedbacks();
+    renderTrainerProfiles(allFbs);
+}
+
+function renderTrainerProfiles(allFbs) {
+    const rows = S.collectors.map(c => {
+        const cFbs = allFbs.filter(f => f.collector_id === c.hr_code);
+        const total = cFbs.length;
+        const seen = cFbs.filter(f => f.is_seen).length;
+        const disputed = cFbs.filter(f => f.is_disputed).length;
+        const unseenCount = total - seen;
+        return `<tr style="cursor:pointer" onclick="openCollectorProfile('${c.hr_code}')">
+            <td style="color:var(--accent);font-weight:600">${c.hr_code}</td>
+            <td>${c.full_name}</td>
+            <td><span class="tag ${total > 0 ? 'tag-n' : 'tag-s'}">${total}</span></td>
+            <td><span class="tag tag-s">${seen}</span></td>
+            <td><span class="tag ${unseenCount > 0 ? 'tag-n' : 'tag-s'}">${unseenCount}</span></td>
+            <td><span class="tag ${disputed > 0 ? 'tag-d' : 'tag-s'}">${disputed}</span></td>
+        </tr>`;
+    }).join('');
+
+    el('app').innerHTML = navHtml() + `
+        <div class="page-wide">
+            <div class="ph"><div class="pt">Collector Profiles</div><div class="ps">Click on a collector to see their full profile</div></div>
+            <div class="tw">
+                <table>
+                    <thead><tr>
+                        <th>HR CODE</th><th>NAME</th>
+                        <th>TOTAL FEEDBACK</th><th>SEEN</th>
+                        <th>NOT SEEN</th><th>DISPUTED</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+async function openCollectorProfile(hrCode) {
+    S.view = 'collector_profile';
+    el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
+    const collector = S.collectors.find(c => c.hr_code === hrCode);
+    const { data: fbs } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
+    renderCollectorProfile(collector, fbs || []);
+}
+
+function renderCollectorProfile(collector, fbs) {
+    const total = fbs.length;
+    const seen = fbs.filter(f => f.is_seen).length;
+    const disputed = fbs.filter(f => f.is_disputed).length;
+    const unseen = total - seen;
+
+    const fbRows = fbs.map(f => {
+        const statusTag = f.is_seen 
+            ? '<span class="tag tag-s">Seen</span>' 
+            : '<span class="tag tag-n">Not Seen</span>';
+        const disputeTag = f.is_disputed 
+            ? `<span class="tag tag-d" title="${f.dispute_reason||''}">Disputed ⚠️</span>` 
+            : '<span style="color:var(--text-dim)">—</span>';
+        return `<tr>
+            <td>${fmtDate(f.feedback_date)}</td>
+            <td>${f.feedback_title || '—'}</td>
+            <td>${f.trainer_name || '—'}</td>
+            <td>${statusTag}</td>
+            <td>${disputeTag}</td>
+            ${f.is_disputed ? `<td style="color:var(--dispute);font-size:12px">${f.dispute_reason||'—'}</td>` : '<td style="color:var(--text-dim)">—</td>'}
+        </tr>`;
+    }).join('');
+
+    el('app').innerHTML = navHtml() + `
+        <div class="page-wide">
+            <div style="margin-bottom:8px">
+                <button class="bs bs-outline" onclick="nav('trainer_profiles')" style="margin-bottom:16px">← Back to Profiles</button>
+            </div>
+            <div class="ph">
+                <div class="pt">${collector ? collector.full_name : hrCode}</div>
+                <div class="ps">${hrCode}</div>
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap">
+                <div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0">
+                    <div style="font-size:28px;font-weight:700">${total}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">TOTAL</div>
+                </div>
+                <div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0">
+                    <div style="font-size:28px;font-weight:700;color:var(--green)">${seen}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">SEEN</div>
+                </div>
+                <div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0">
+                    <div style="font-size:28px;font-weight:700;color:var(--accent)">${unseen}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">NOT SEEN</div>
+                </div>
+                <div class="card" style="min-width:120px;text-align:center;padding:16px;margin:0">
+                    <div style="font-size:28px;font-weight:700;color:var(--dispute)">${disputed}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">DISPUTED</div>
+                </div>
+            </div>
+            ${fbs.length === 0 
+                ? '<div class="empty">No feedback sent yet</div>'
+                : `<div class="tw"><table>
+                    <thead><tr>
+                        <th>DATE</th><th>TITLE</th><th>TRAINER</th><th>STATUS</th><th>DISPUTE</th><th>REASON</th>
+                    </tr></thead>
+                    <tbody>${fbRows}</tbody>
+                </table></div>`}
+        </div>`;
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
