@@ -515,8 +515,24 @@ async function sendFb() {
     const ok = await doSendFeedback(col, S.user.full_name, date, url, title);
     btn.textContent = 'Send Feedback'; btn.disabled = false;
     if (ok) {
+        // Get collector email
+        const collector = S.collectors.find(c => c.hr_code === col);
+        const collectorEmail = collector ? collector.email || '' : '';
+        const collectorName = collector ? collector.full_name : col;
+        const fbTitle = el('fbTitle').value;
+        
         _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; el('fbUrl').value = ''; el('fbTitle').value = '';
-        show('fbsuc'); setTimeout(() => hide('fbsuc'), 3000);
+        
+        // Show success with email button
+        const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
+        const emailSubject = encodeURIComponent('New Feedback Available - ' + fbTitle);
+        const emailBody = encodeURIComponent('Hi ' + collectorName + ',\n\nYou have a new feedback waiting for you.\n\nTitle: ' + fbTitle + '\n\nPlease check your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
+        const mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
+        
+        el('fberr').style.display = 'none';
+        el('fbsuc').innerHTML = 'Feedback sent! <a href="' + mailtoLink + '" target="_blank" style="color:var(--accent);font-weight:600;margin-left:8px">📧 Send Email Notification</a>';
+        show('fbsuc');
+        setTimeout(() => { el('fbsuc').innerHTML = 'Feedback sent!'; hide('fbsuc'); }, 10000);
         S.feedbacks = await fetchAllFeedbacks();
         renderTrainerFeedback();
     } else { el('fberr').textContent='Error sending feedback'; show('fberr'); }
