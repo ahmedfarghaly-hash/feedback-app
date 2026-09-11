@@ -415,6 +415,23 @@ async function loadTrainerFeedback() {
 }
 
 function renderTrainerFeedback() {
+    // Show email notification if pending
+    if (S._pendingMailto) {
+        const mailto = S._pendingMailto;
+        const name = S._pendingCollectorName;
+        S._pendingMailto = null;
+        S._pendingCollectorName = null;
+        setTimeout(() => {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1A1D27;border:1px solid #4F7CFF;border-radius:12px;padding:16px 20px;z-index:999;max-width:340px;box-shadow:0 4px 24px rgba(0,0,0,0.4)';
+            banner.innerHTML = '<div style="font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:8px">✅ Feedback sent to ' + name + '</div>' +
+                '<a href="' + mailto + '" target="_blank" style="display:inline-block;background:#4F7CFF;color:#fff;text-decoration:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600">📧 Send Email Notification</a>' +
+                '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#7B8099;cursor:pointer;font-size:18px;position:absolute;top:8px;right:12px">×</button>';
+            document.body.appendChild(banner);
+            setTimeout(() => { if(banner.parentElement) banner.remove(); }, 20000);
+        }, 100);
+    }
+
     const filtered = S.filter === 'all' ? S.feedbacks
         : S.filter === 'unseen' ? S.feedbacks.filter(f => !f.is_seen)
         : S.feedbacks.filter(f => f.is_disputed);
@@ -530,16 +547,9 @@ async function sendFb() {
         const mailtoLink = 'mailto:' + collectorEmail + '?subject=' + emailSubject + '&body=' + emailBody;
         
         S.feedbacks = await fetchAllFeedbacks();
+        S._pendingMailto = mailtoLink;
+        S._pendingCollectorName = collectorName;
         renderTrainerFeedback();
-        // Show email notification after render
-        setTimeout(() => {
-            const sucEl = el('fbsuc');
-            if (sucEl) {
-                sucEl.innerHTML = 'Feedback sent! <a href="' + mailtoLink + '" target="_blank" style="color:var(--accent);font-weight:600;margin-left:8px">📧 Send Email Notification</a>';
-                sucEl.style.display = 'block';
-                setTimeout(() => { if(el('fbsuc')) { el('fbsuc').innerHTML = 'Feedback sent!'; el('fbsuc').style.display = 'none'; } }, 15000);
-            }
-        }, 300);
     } else { el('fberr').textContent='Error sending feedback'; show('fberr'); }
 }
 
