@@ -615,10 +615,7 @@ async function openCollectorProfile(hrCode) {
     el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
     const collector = S.collectors.find(c => c.hr_code === hrCode);
     const { data: fbs, error } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
-    if (error) {
-        el('app').innerHTML = navHtml() + `<div class="page"><div class="err">Error: ${error.message}</div></div>`;
-        return;
-    }
+    alert('HR: ' + hrCode + ' | Feedbacks: ' + (fbs ? fbs.length : 0) + ' | Error: ' + (error ? error.message : 'none'));
     renderCollectorProfile(collector, fbs || []);
 }
 
