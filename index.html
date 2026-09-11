@@ -460,11 +460,12 @@ function renderTrainerFeedback() {
 
 function setFilter(f) { S.filter = f; renderTrainerFeedback(); }
 
+let _selectedCollectorHR = '';
+
 function filterCollectors(query) {
     const dropdown = el('fbColDropdown');
-    const hidden = el('fbCol');
     
-    if (!query.trim()) { dropdown.style.display = 'none'; return; }
+    if (!query.trim()) { dropdown.style.display = 'none'; _selectedCollectorHR = ''; return; }
     
     const q = query.toLowerCase();
     const matches = S.collectors.filter(c => 
@@ -475,29 +476,32 @@ function filterCollectors(query) {
         dropdown.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:13px">No results found</div>';
     } else {
         dropdown.innerHTML = matches.map(c => `
-            <div onclick="selectCollector('${c.hr_code}','${c.full_name}','${c.hr_code}')" 
-                style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
-                onmouseover="this.style.background='var(--surface-hover)'" 
-                onmouseout="this.style.background=''">
+            <div class="col-opt"
+                data-hr="${c.hr_code}"
+                data-name="${c.full_name.replace(/"/g, '&quot;')}"
+                style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)">
                 <strong>${c.full_name}</strong> <span style="color:var(--text-muted)">${c.hr_code}</span>
             </div>
         `).join('');
+        dropdown.querySelectorAll('.col-opt').forEach(div => {
+            div.onmouseover = () => div.style.background = 'var(--surface-hover)';
+            div.onmouseout = () => div.style.background = '';
+            div.onclick = () => {
+                _selectedCollectorHR = div.dataset.hr;
+                el('fbColSearch').value = div.dataset.name + ' (' + div.dataset.hr + ')';
+                el('fbColDropdown').style.display = 'none';
+                el('fbColSelected').textContent = '✓ ' + div.dataset.name + ' selected';
+                el('fbColSelected').style.display = 'block';
+            };
+        });
     }
     dropdown.style.display = 'block';
-    hidden.value = '';
+    _selectedCollectorHR = '';
     el('fbColSelected').style.display = 'none';
 }
 
-function selectCollector(id, name, hrCode) {
-    el('fbCol').value = id;
-    el('fbColSearch').value = name + ' (' + hrCode + ')';
-    el('fbColDropdown').style.display = 'none';
-    el('fbColSelected').textContent = '✓ ' + name + ' selected';
-    el('fbColSelected').style.display = 'block';
-}
-
 async function sendFb() {
-    const col = el('fbCol').value, date = el('fbDate').value, url = el('fbUrl').value;
+    const col = _selectedCollectorHR, date = el('fbDate').value, url = el('fbUrl').value;
     if (!col || !date || !url) { el('fberr').textContent='Please fill in all fields'; show('fberr'); return; }
     hide('fberr');
     const btn = document.querySelector('#app .bs-primary');
@@ -505,7 +509,7 @@ async function sendFb() {
     const ok = await doSendFeedback(col, S.user.full_name, date, url);
     btn.textContent = 'Send Feedback'; btn.disabled = false;
     if (ok) {
-        el('fbCol').value = ''; el('fbUrl').value = '';
+        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; el('fbUrl').value = '';
         show('fbsuc'); setTimeout(() => hide('fbsuc'), 3000);
         S.feedbacks = await fetchAllFeedbacks();
         renderTrainerFeedback();
