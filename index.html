@@ -1268,7 +1268,7 @@ async function submitDisputeResponse(videoId) {
         const v = window._disputeVideos.find(vid => vid.id === videoId);
         if (v) { v.dispute_response = response; v.dispute_status = decision; }
         document.getElementById('disputeResponseModal').remove();
-        renderTrainerDisputes(window._disputeVideos, window._disputeFbMap, window._disputeProfMap);
+        setTimeout(() => renderTrainerDisputes(window._disputeVideos, window._disputeFbMap, window._disputeProfMap), 100);
         
         // Send email to collector
         const fb = window._disputeFbMap[v ? v.feedback_id : ''] || {};
