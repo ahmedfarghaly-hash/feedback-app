@@ -532,29 +532,39 @@ function renderTrainerFeedback() {
         : S.filter === 'unseen' ? S.feedbacks.filter(f => !f.is_seen)
         : S.feedbacks.filter(f => f.is_disputed);
 
-    const rows = filtered.map(f => {
+    let rows = '';
+    filtered.forEach(f => {
         const p = f._profile;
-        const videoCount = f._videos && f._videos.length > 0 ? f._videos.length : 1;
-        const st = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
-        const disputedVideos = f._videos ? f._videos.filter(v => v.is_disputed) : [];
-        let dt;
-        if (disputedVideos.length > 0) {
-            const titles = disputedVideos.map(v => v.video_title || 'Video').join(', ');
-            dt = '<span class="tag tag-d" title="' + titles + '">Disputed ⚠️ (' + disputedVideos.length + '/' + videoCount + ')</span>';
-        } else if (f.is_disputed) {
-            dt = '<span class="tag tag-d">Disputed ⚠️</span>';
-        } else {
-            dt = '<span style="color:var(--text-dim)">—</span>';
-        }
         const name = p ? p.full_name : '—';
         const hr = p ? p.hr_code : '';
-        return '<tr>' +
-            '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
-            '<td>' + fmtDate(f.feedback_date) + '</td>' +
-            '<td><span style="font-size:11px;color:var(--text-muted)">' + videoCount + ' video' + (videoCount>1?'s':'') + '</span> ' + st + '</td>' +
-            '<td>' + dt + '</td>' +
-            '</tr>';
-    }).join('');
+        const seenTag = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
+        
+        if (f._videos && f._videos.length > 0) {
+            f._videos.forEach(v => {
+                const dt = v.is_disputed 
+                    ? '<span class="tag tag-d" title="' + (v.dispute_reason||'') + '">Disputed ⚠️</span>'
+                    : '<span style="color:var(--text-dim)">—</span>';
+                rows += '<tr>' +
+                    '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
+                    '<td>' + fmtDate(f.feedback_date) + '</td>' +
+                    '<td style="color:var(--text-muted);font-size:12px">' + (v.video_title||'Video') + '</td>' +
+                    '<td>' + seenTag + '</td>' +
+                    '<td>' + dt + '</td>' +
+                    '</tr>';
+            });
+        } else {
+            const dt = f.is_disputed 
+                ? '<span class="tag tag-d">Disputed ⚠️</span>'
+                : '<span style="color:var(--text-dim)">—</span>';
+            rows += '<tr>' +
+                '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
+                '<td>' + fmtDate(f.feedback_date) + '</td>' +
+                '<td style="color:var(--text-muted);font-size:12px">—</td>' +
+                '<td>' + seenTag + '</td>' +
+                '<td>' + dt + '</td>' +
+                '</tr>';
+        }
+    });
 
     const opts = S.collectors.map(c => `<option value="${c.id}">${c.full_name} (${c.hr_code})</option>`).join('');
     const filterBtns = ['all','unseen','disputed'].map(f =>
@@ -587,11 +597,11 @@ function renderTrainerFeedback() {
             </div>
             <div style="margin-top:32px">
                 <div class="fr">
-                    <div class="st" style="margin:0">All Feedback (${S.feedbacks.length})</div>
+                    <div class="st" style="margin:0">All Feedback (${S.feedbacks.reduce((s,f) => s + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0)})</div>
                     <div class="fb-btns">${filterBtns}</div>
                 </div>
                 ${filtered.length === 0 ? '<div class="empty" style="padding:24px">No feedback found</div>'
-                    : `<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>STATUS</th><th>DISPUTE</th></tr></thead><tbody>${rows}</tbody></table></div>`}
+                    : '<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>VIDEO TITLE</th><th>STATUS</th><th>DISPUTE</th></tr></thead><tbody>' + rows + '</tbody></table></div>'}
             </div>
         </div>`;
 }
@@ -809,29 +819,56 @@ async function openCollectorProfile(hrCode) {
     const collector = S.collectors.find(c => c.hr_code === hrCode);
     const { data: fbs } = await sb.from('feedbacks').select('*').eq('collector_id', hrCode);
     const safeFbs = fbs || [];
-    const total = safeFbs.length;
+    // Fetch videos for each feedback
+    const fbIds = safeFbs.map(f => f.id).filter(Boolean);
+    let videosMap = {};
+    if (fbIds.length > 0) {
+        const { data: videos } = await sb.from('feedback_videos').select('*').in('feedback_id', fbIds);
+        (videos || []).forEach(v => {
+            if (!videosMap[v.feedback_id]) videosMap[v.feedback_id] = [];
+            videosMap[v.feedback_id].push(v);
+        });
+    }
+    safeFbs.forEach(f => { f._videos = videosMap[f.id] || []; });
+    // Count videos not folders
+    const total = safeFbs.reduce((s, f) => s + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0);
     const seen = safeFbs.filter(f => f.is_seen === true).length;
-    const disputed = safeFbs.filter(f => f.is_disputed === true).length;
+    const disputed = safeFbs.reduce((s, f) => s + (f._videos ? f._videos.filter(v => v.is_disputed).length : (f.is_disputed ? 1 : 0)), 0);
     const unseen = total - seen;
     
     let rows = '';
     for (let i = 0; i < safeFbs.length; i++) {
         const f = safeFbs[i];
-        const st = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
-        const dt = f.is_disputed ? '<span class="tag tag-d">Disputed</span>' : '<span style="color:var(--text-dim)">—</span>';
-        const rs = f.is_disputed ? (f.dispute_reason || '—') : '—';
-        rows += '<tr>';
-        rows += '<td>' + fmtDate(f.feedback_date) + '</td>';
-        rows += '<td>' + (f.feedback_title || '—') + '</td>';
-        rows += '<td>' + (f.trainer_name || '—') + '</td>';
-        rows += '<td>' + st + '</td>';
-        rows += '<td>' + dt + '</td>';
-        rows += '<td style="font-size:12px;color:var(--text-muted)">' + rs + '</td>';
-        const videoLink = f.video_url 
-            ? '<a href="' + f.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>'
-            : '<span style="color:var(--text-dim)">—</span>';
-        rows += '<td>' + videoLink + '</td>';
-        rows += '</tr>';
+        const seenTag = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
+        if (f._videos && f._videos.length > 0) {
+            f._videos.forEach(v => {
+                const dt = v.is_disputed ? '<span class="tag tag-d">Disputed</span>' : '<span style="color:var(--text-dim)">—</span>';
+                const rs = v.is_disputed ? (v.dispute_reason || '—') : '—';
+                const videoLink = v.video_url ? '<a href="' + v.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>' : '<span style="color:var(--text-dim)">—</span>';
+                rows += '<tr>';
+                rows += '<td>' + fmtDate(f.feedback_date) + '</td>';
+                rows += '<td>' + (v.video_title || '—') + '</td>';
+                rows += '<td>' + (f.trainer_name || '—') + '</td>';
+                rows += '<td>' + seenTag + '</td>';
+                rows += '<td>' + dt + '</td>';
+                rows += '<td style="font-size:12px;color:var(--text-muted)">' + rs + '</td>';
+                rows += '<td>' + videoLink + '</td>';
+                rows += '</tr>';
+            });
+        } else {
+            const dt = f.is_disputed ? '<span class="tag tag-d">Disputed</span>' : '<span style="color:var(--text-dim)">—</span>';
+            const rs = f.is_disputed ? (f.dispute_reason || '—') : '—';
+            const videoLink = f.video_url ? '<a href="' + f.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>' : '<span style="color:var(--text-dim)">—</span>';
+            rows += '<tr>';
+            rows += '<td>' + fmtDate(f.feedback_date) + '</td>';
+            rows += '<td>' + (f.feedback_title || '—') + '</td>';
+            rows += '<td>' + (f.trainer_name || '—') + '</td>';
+            rows += '<td>' + seenTag + '</td>';
+            rows += '<td>' + dt + '</td>';
+            rows += '<td style="font-size:12px;color:var(--text-muted)">' + rs + '</td>';
+            rows += '<td>' + videoLink + '</td>';
+            rows += '</tr>';
+        }
     }
     
     const name = collector ? collector.full_name : hrCode;
