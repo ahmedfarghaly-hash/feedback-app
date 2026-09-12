@@ -186,11 +186,14 @@ async function fetchCollectors() {
 }
 
 async function doSendFeedback(collectorId, trainerName, date, videoUrl, title) {
-    // Auto-convert any Google Drive link to preview link
+    // Auto-convert any Google Drive link to correct embed format
     if (videoUrl.includes('drive.google.com')) {
-        const fileIdMatch = videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (fileIdMatch) {
-            videoUrl = 'https://drive.google.com/file/d/' + fileIdMatch[1] + '/preview';
+        const folderMatch = videoUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
+        const fileMatch = videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (folderMatch) {
+            videoUrl = 'https://drive.google.com/embedfolderv1/folders/' + folderMatch[1] + '?usp=sharing';
+        } else if (fileMatch) {
+            videoUrl = 'https://drive.google.com/file/d/' + fileMatch[1] + '/preview';
         }
     }
     const { error } = await sb.from('feedbacks').insert({
