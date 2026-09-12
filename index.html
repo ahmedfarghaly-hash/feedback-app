@@ -652,14 +652,14 @@ async function sendFb() {
         const collector = S.collectors.find(c => c.hr_code === col);
         const collectorEmail = collector ? collector.email || '' : '';
         const collectorName = collector ? collector.full_name : col;
-        const fbTitle = el('fbTitle').value;
+        const fbTitle = sessionTitle;
         
         _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; document.querySelectorAll('.video-url-input').forEach(i => i.value = ''); document.querySelectorAll('.video-title-input').forEach(i => i.value = '');
         
         // Show success with email button
         const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
-        const emailSubject = encodeURIComponent('New Feedback Available - ' + fbTitle);
-        const emailBody = encodeURIComponent('Hi ' + collectorName + ',\n\nYou have a new feedback waiting for you.\n\nTitle: ' + fbTitle + '\n\nCheck your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
+        const emailSubject = encodeURIComponent('New Feedback Available - ' + collectorName);
+        const emailBody = encodeURIComponent('Hi ' + collectorName + ',\n\nYou have a new feedback waiting for you.\n\nCheck your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
         let mailtoLink;
         if (collectorEmail.includes('gmail.com')) {
             mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(collectorEmail) + '&su=' + emailSubject + '&body=' + emailBody;
