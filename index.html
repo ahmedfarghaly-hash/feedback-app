@@ -1181,7 +1181,6 @@ function renderTrainerDisputes(videos, fbMap, profMap) {
             '<td>' + statusTag + '</td>' +
             '<td>' + (v.dispute_response ? '<span style="font-size:12px;color:var(--text-muted)">' + v.dispute_response + '</span>' : '<span style="color:var(--text-dim)">—</span>') + '</td>' +
             '<td>' + (v.video_url ? '<a href="' + v.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>' : '—') + '</td>' +
-            '<td>' + (v.video_url ? '<a href="' + v.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>' : '—') + '</td>' +
             '<td><button class="bs bs-outline" style="font-size:11px;padding:5px 10px" onclick="openDisputeResponse(this.dataset.id)" data-id="' + v.id + '">Respond</button></td>' +
             '</tr>';
     }).join('');
@@ -1285,7 +1284,7 @@ async function submitDisputeResponse(videoId) {
             } else {
                 mailtoLink = 'https://outlook.cloud.microsoft/mail/deeplink/compose?to=' + encodeURIComponent(prof.email) + '&subject=' + subject + '&body=' + body;
             }
-            showEmailBanner(mailtoLink, prof.full_name || fb.collector_id);
+            showDisputeEmailBanner(mailtoLink, prof.full_name || fb.collector_id, v ? v.video_title : '', decision);
         }
     }
 }
