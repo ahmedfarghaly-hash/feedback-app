@@ -163,20 +163,23 @@ async function loginUser(hrCode) {
 }
 
 async function fetchCollectorFeedbacks(collectorId) {
-    const { data, error } = await sb.from('feedbacks').select('*').eq('collector_id', collectorId);
-    if (error) console.error('fetch error:', error);
-    if (!data || data.length === 0) return [];
-    // Fetch videos for each feedback
-    const fbIds = data.map(f => f.id).filter(Boolean);
-    let videosMap = {};
-    if (fbIds.length > 0) {
-        const { data: videos } = await sb.from('feedback_videos').select('*').in('feedback_id', fbIds);
-        (videos || []).forEach(v => {
-            if (!videosMap[v.feedback_id]) videosMap[v.feedback_id] = [];
-            videosMap[v.feedback_id].push(v);
-        });
+    try {
+        const { data, error } = await sb.from('feedbacks').select('*').eq('collector_id', collectorId);
+        if (error || !data || data.length === 0) return [];
+        const fbIds = data.map(f => f.id).filter(Boolean);
+        let videosMap = {};
+        if (fbIds.length > 0) {
+            const { data: videos } = await sb.from('feedback_videos').select('*').in('feedback_id', fbIds);
+            (videos || []).forEach(v => {
+                if (!videosMap[v.feedback_id]) videosMap[v.feedback_id] = [];
+                videosMap[v.feedback_id].push(v);
+            });
+        }
+        return data.map(f => ({ ...f, _videos: videosMap[f.id] || [] }));
+    } catch(e) {
+        console.error('fetchCollectorFeedbacks error:', e);
+        return [];
     }
-    return data.map(f => ({ ...f, _videos: videosMap[f.id] || [] }));
 }
 
 async function fetchAllFeedbacks() {
@@ -345,8 +348,12 @@ function doLoginStep2() {
 
 // ── Collector ────────────────────────────────────────────────────────────────
 async function loadCollector() {
-    el('app').innerHTML = navHtml() + `<div class="page"><div class="loading">Loading...</div></div>`;
-    S.feedbacks = await fetchCollectorFeedbacks(S.user.hr_code);
+    el('app').innerHTML = navHtml() + '<div class="page"><div class="loading">Loading...</div></div>';
+    try {
+        S.feedbacks = await fetchCollectorFeedbacks(S.user.hr_code);
+    } catch(e) {
+        S.feedbacks = [];
+    }
     renderCollector();
 }
 
