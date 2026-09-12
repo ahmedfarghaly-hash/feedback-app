@@ -165,7 +165,18 @@ async function loginUser(hrCode) {
 async function fetchCollectorFeedbacks(collectorId) {
     const { data, error } = await sb.from('feedbacks').select('*').eq('collector_id', collectorId);
     if (error) console.error('fetch error:', error);
-    return data || [];
+    if (!data || data.length === 0) return [];
+    // Fetch videos for each feedback
+    const fbIds = data.map(f => f.id).filter(Boolean);
+    let videosMap = {};
+    if (fbIds.length > 0) {
+        const { data: videos } = await sb.from('feedback_videos').select('*').in('feedback_id', fbIds);
+        (videos || []).forEach(v => {
+            if (!videosMap[v.feedback_id]) videosMap[v.feedback_id] = [];
+            videosMap[v.feedback_id].push(v);
+        });
+    }
+    return data.map(f => ({ ...f, _videos: videosMap[f.id] || [] }));
 }
 
 async function fetchAllFeedbacks() {
@@ -185,24 +196,30 @@ async function fetchCollectors() {
     return data || [];
 }
 
-async function doSendFeedback(collectorId, trainerName, date, videoUrl, title) {
-    // Auto-convert any Google Drive link to correct format
-    if (videoUrl.includes('drive.google.com')) {
-        const folderMatch = videoUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
-        const fileMatch = videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (folderMatch) {
-            videoUrl = 'FOLDER:https://drive.google.com/drive/folders/' + folderMatch[1];
-        } else if (fileMatch) {
-            videoUrl = 'https://drive.google.com/file/d/' + fileMatch[1] + '/preview';
-        }
+function convertDriveUrl(videoUrl) {
+    if (videoUrl && videoUrl.includes('drive.google.com')) {
+        const fileMatch = videoUrl.match(/[/]d[/]([a-zA-Z0-9_-]+)/);
+        if (fileMatch) return 'https://drive.google.com/file/d/' + fileMatch[1] + '/preview';
     }
-    const { error } = await sb.from('feedbacks').insert({
+    return videoUrl || '';
+}
+
+async function doSendFeedback(collectorId, trainerName, date, videoUrls, title) {
+    const firstUrl = convertDriveUrl(videoUrls[0] || '');
+    const { data: fbData, error: fbError } = await sb.from('feedbacks').insert({
         collector_id: collectorId, trainer_name: trainerName,
-        feedback_date: date, video_url: videoUrl,
-        feedback_title: title,
-        is_seen: false, is_disputed: false, dispute_reason: ''
-    });
-    return !error;
+        feedback_date: date, video_url: firstUrl,
+        feedback_title: title, is_seen: false, is_disputed: false, dispute_reason: ''
+    }).select().single();
+    if (fbError || !fbData) return false;
+    const videos = videoUrls.map((url, i) => ({
+        feedback_id: fbData.id,
+        video_url: convertDriveUrl(url),
+        video_title: videoUrls.length > 1 ? 'Video ' + (i+1) : title,
+        is_disputed: false, dispute_reason: ''
+    }));
+    const { error: vidError } = await sb.from('feedback_videos').insert(videos);
+    return !vidError;
 }
 
 async function doAddCollector(hrCode, fullName) {
@@ -360,29 +377,37 @@ function renderCollector() {
 }
 
 function fbCard(f, isNew) {
-    const cls = f.is_disputed ? 'card-d' : isNew ? 'card' : 'card-s';
-    const tag = f.is_disputed ? `<span class="tag tag-d">Disputed</span>`
-        : isNew ? `<span class="tag tag-n">New</span>` : `<span class="tag tag-s">Seen</span>`;
-    let video = '';
-    if (f.video_url) {
-        if (f.video_url.startsWith('FOLDER:')) {
-            const folderUrl = f.video_url.replace('FOLDER:', '');
-            video = '<a href="' + folderUrl + '" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;background:var(--surface-hover);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:12px;text-decoration:none;color:var(--text)">' +
-                '<span style="font-size:24px">📂</span>' +
-                '<div><div style="font-weight:600;font-size:14px">Open Feedback Folder</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Click to view all feedback videos</div></div>' +
-                '<span style="margin-left:auto;color:var(--accent);font-size:12px">Open ↗</span>' +
-                '</a>';
-        } else {
-            video = '<iframe src="' + f.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen></iframe>';
-        }
+    const hasVideos = f._videos && f._videos.length > 0;
+    const isDisputed = f.is_disputed || (hasVideos && f._videos.every(v => v.is_disputed));
+    const cls = isDisputed ? 'card-d' : isNew ? 'card' : 'card-s';
+    const tag = isDisputed ? '<span class="tag tag-d">Disputed</span>'
+        : isNew ? '<span class="tag tag-n">New</span>' : '<span class="tag tag-s">Seen</span>';
+    const titleHtml = f.feedback_title ? '<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">' + f.feedback_title + '</div>' : '';
+    
+    let videosHtml = '';
+    if (hasVideos) {
+        videosHtml = f._videos.map((v, i) => {
+            const vTag = v.is_disputed ? '<span class="tag tag-d" style="font-size:10px">Disputed</span>' : '';
+            const vDispBtn = !v.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" onclick="openVideoDispute('' + v.id + '','' + f.id + '')">Dispute</button></div>' : '';
+            const vReason = v.is_disputed && v.dispute_reason ? '<div class="dr" style="margin-top:6px"><strong>Dispute reason:</strong> ' + v.dispute_reason + '</div>' : '';
+            return '<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+                '<span style="font-size:12px;font-weight:600;color:var(--text-muted)">VIDEO ' + (i+1) + '</span>' + vTag +
+                '</div>' +
+                '<iframe src="' + v.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen style="margin-bottom:0"></iframe>' +
+                vReason + vDispBtn +
+                '</div>';
+        }).join('');
+    } else if (f.video_url) {
+        const vDispBtn = !f.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" onclick="openDispute('' + f.id + '')">Dispute</button></div>' : '';
+        const vReason = f.is_disputed && f.dispute_reason ? '<div class="dr"><strong>Dispute reason:</strong> ' + f.dispute_reason + '</div>' : '';
+        videosHtml = '<iframe src="' + f.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen></iframe>' + vReason + vDispBtn;
     }
-    const reason = f.is_disputed && f.dispute_reason ? `<div class="dr"><strong>Dispute reason:</strong> ${f.dispute_reason}</div>` : '';
-    const dBtn = !f.is_disputed ? `<div class="fe"><button class="bs bs-dispute" onclick="openDispute('${f.id}')">Dispute</button></div>` : '';
-    const titleHtml = f.feedback_title ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">${f.feedback_title}</div>` : '';
-    return `<div class="${cls}">
-        <div class="ch"><div><div class="ct">${fmtDate(f.feedback_date)}</div><div class="cd">From: ${f.trainer_name||'Trainer'}</div></div><div>${tag}</div></div>
-        ${titleHtml}${video}${reason}${dBtn}
-    </div>`;
+    
+    return '<div class="' + cls + '">' +
+        '<div class="ch"><div><div class="ct">' + fmtDate(f.feedback_date) + '</div><div class="cd">From: ' + (f.trainer_name||'Trainer') + '</div></div><div>' + tag + '</div></div>' +
+        titleHtml + videosHtml +
+        '</div>';
 }
 
 function bindIframes() {
@@ -397,7 +422,12 @@ function bindIframes() {
 }
 
 function openDispute(id) {
-    S.disputeTarget = S.feedbacks.find(f => f.id === id);
+    S.disputeTarget = { type: 'feedback', id: id };
+    renderCollector();
+}
+
+function openVideoDispute(videoId, feedbackId) {
+    S.disputeTarget = { type: 'video', id: videoId, feedbackId: feedbackId };
     renderCollector();
 }
 
@@ -407,9 +437,18 @@ async function confirmDispute() {
     const reason = el('dreason').value.trim();
     if (!reason) { show('derr'); return; }
     hide('derr');
-    await doDispute(S.disputeTarget.id, reason);
-    const fb = S.feedbacks.find(f => f.id === S.disputeTarget.id);
-    if (fb) { fb.is_disputed = true; fb.dispute_reason = reason; }
+    if (S.disputeTarget.type === 'video') {
+        await sb.from('feedback_videos').update({ is_disputed: true, dispute_reason: reason }).eq('id', S.disputeTarget.id);
+        const fb = S.feedbacks.find(f => f.id === S.disputeTarget.feedbackId);
+        if (fb && fb._videos) {
+            const v = fb._videos.find(v => v.id === S.disputeTarget.id);
+            if (v) { v.is_disputed = true; v.dispute_reason = reason; }
+        }
+    } else {
+        await doDispute(S.disputeTarget.id, reason);
+        const fb = S.feedbacks.find(f => f.id === S.disputeTarget.id);
+        if (fb) { fb.is_disputed = true; fb.dispute_reason = reason; }
+    }
     S.disputeTarget = null;
     renderCollector();
 }
@@ -471,8 +510,13 @@ function renderTrainerFeedback() {
                 </div>
                 <div class="fg"><label class="lbl">FEEDBACK DATE</label><input type="date" id="fbDate" value="${today()}" /></div>
                 <div class="fg"><label class="lbl">FEEDBACK TITLE</label><input type="text" id="fbTitle" placeholder="e.g. Call Review - Customer Objection" /></div>
-                <div class="fg"><label class="lbl">VIDEO URL (Google Drive Preview)</label>
-                    <input type="text" id="fbUrl" placeholder="https://drive.google.com/file/d/.../preview" /></div>
+                <div id="videosContainer">
+                    <div class="fg">
+                        <label class="lbl">VIDEO 1</label>
+                        <input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." />
+                    </div>
+                </div>
+                <button class="bs bs-outline" onclick="addVideoField()" style="margin-bottom:12px">+ Add Another Video</button>
                 <div id="fberr" class="err" style="display:none"></div>
                 <div id="fbsuc" class="suc" style="display:none">Feedback sent!</div>
                 <button class="bs bs-primary bs-full" style="margin-top:4px" onclick="sendFb()">Send Feedback</button>
@@ -530,13 +574,30 @@ function filterCollectors(query) {
     el('fbColSelected').style.display = 'none';
 }
 
+function addVideoField() {
+    const container = el('videosContainer');
+    const count = container.querySelectorAll('.video-url-input').length + 1;
+    const div = document.createElement('div');
+    div.className = 'fg';
+    div.innerHTML = '<label class="lbl">VIDEO ' + count + '</label>' +
+        '<div style="display:flex;gap:8px">' +
+        '<input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." style="flex:1" />' +
+        '<button class="bs bs-outline" onclick="this.parentElement.parentElement.remove()" style="padding:10px 12px">✕</button>' +
+        '</div>';
+    container.appendChild(div);
+}
+
 async function sendFb() {
-    const col = _selectedCollectorHR, date = el('fbDate').value, url = el('fbUrl').value, title = el('fbTitle').value;
-    if (!col || !date || !url || !title) { el('fberr').textContent='Please fill in all fields'; show('fberr'); return; }
+    const col = _selectedCollectorHR, date = el('fbDate').value, title = el('fbTitle').value;
+    const videoInputs = document.querySelectorAll('.video-url-input');
+    const videoUrls = Array.from(videoInputs).map(i => i.value.trim()).filter(v => v);
+    
+    if (!col || !date || !title) { el('fberr').textContent='Please fill in all fields'; show('fberr'); return; }
+    if (videoUrls.length === 0) { el('fberr').textContent='Please add at least one video'; show('fberr'); return; }
     hide('fberr');
     const btn = document.querySelector('#app .bs-primary');
     btn.textContent = 'Sending...'; btn.disabled = true;
-    const ok = await doSendFeedback(col, S.user.full_name, date, url, title);
+    const ok = await doSendFeedback(col, S.user.full_name, date, videoUrls, title);
     btn.textContent = 'Send Feedback'; btn.disabled = false;
     if (ok) {
         // Get collector email
