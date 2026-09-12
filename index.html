@@ -530,7 +530,7 @@ async function loadTrainerFeedback() {
 function renderTrainerFeedback() {
     const filtered = S.filter === 'all' ? S.feedbacks
         : S.filter === 'unseen' ? S.feedbacks.filter(f => !f.is_seen)
-        : S.feedbacks.filter(f => f.is_disputed);
+        : S.feedbacks.filter(f => f.is_disputed || (f._videos && f._videos.some(v => v.is_disputed)));
 
     let rows = '';
     filtered.forEach(f => {
