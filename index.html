@@ -1277,7 +1277,8 @@ async function submitDisputeResponse(videoId) {
             const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
             const decisionText = decision === 'accepted' ? '✅ Accepted' : '❌ Rejected';
             const subject = encodeURIComponent('Dispute Response - ' + (v ? v.video_title : ''));
-            const body = encodeURIComponent('Hi ' + (prof.full_name||'') + ',\n\nYour dispute on video "' + (v ? v.video_title : '') + '" has been reviewed.\n\nDecision: ' + decisionText + '\nResponse: ' + response + '\n\nCheck your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
+            const videoLink = v && v.video_url ? v.video_url : '';
+            const body = encodeURIComponent('Hi ' + (prof.full_name||'') + ',\n\nYour dispute on video "' + (v ? v.video_title : '') + '" has been reviewed.\n\nDecision: ' + decisionText + '\nResponse: ' + response + (videoLink ? '\n\nVideo link:\n' + videoLink : '') + '\n\nCheck your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
             let mailtoLink;
             if (prof.email.includes('gmail.com')) {
                 mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(prof.email) + '&su=' + subject + '&body=' + body;
