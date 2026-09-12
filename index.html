@@ -1180,13 +1180,15 @@ function renderTrainerDisputes(videos, fbMap, profMap) {
             '<td style="font-size:12px;color:var(--dispute)">' + (v.dispute_reason||'—') + '</td>' +
             '<td>' + statusTag + '</td>' +
             '<td>' + (v.dispute_response ? '<span style="font-size:12px;color:var(--text-muted)">' + v.dispute_response + '</span>' : '<span style="color:var(--text-dim)">—</span>') + '</td>' +
+            '<td>' + (v.video_url ? '<a href="' + v.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>' : '—') + '</td>' +
+            '<td>' + (v.video_url ? '<a href="' + v.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>' : '—') + '</td>' +
             '<td><button class="bs bs-outline" style="font-size:11px;padding:5px 10px" onclick="openDisputeResponse(this.dataset.id)" data-id="' + v.id + '">Respond</button></td>' +
             '</tr>';
     }).join('');
 
     const tableHtml = filtered.length === 0
         ? '<div class="empty" style="padding:24px">No disputes found</div>'
-        : '<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>VIDEO</th><th>REASON</th><th>STATUS</th><th>RESPONSE</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        : '<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>VIDEO</th><th>REASON</th><th>STATUS</th><th>RESPONSE</th><th>WATCH</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 
     el('app').innerHTML = navHtml() + `
         <div class="page-wide">
@@ -1264,11 +1266,64 @@ async function submitDisputeResponse(videoId) {
     }).eq('id', videoId);
     
     if (!error) {
-        const v = window._disputeVideos.find(v => v.id === videoId);
+        const v = window._disputeVideos.find(vid => vid.id === videoId);
         if (v) { v.dispute_response = response; v.dispute_status = decision; }
         document.getElementById('disputeResponseModal').remove();
         renderTrainerDisputes(window._disputeVideos, window._disputeFbMap, window._disputeProfMap);
+        
+        // Send email to collector
+        const fb = window._disputeFbMap[v ? v.feedback_id : ''] || {};
+        const prof = window._disputeProfMap[fb.collector_id] || {};
+        if (prof.email) {
+            const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
+            const decisionText = decision === 'accepted' ? '✅ Accepted' : '❌ Rejected';
+            const subject = encodeURIComponent('Dispute Response - ' + (v ? v.video_title : ''));
+            const body = encodeURIComponent('Hi ' + (prof.full_name||'') + ',\n\nYour dispute on video "' + (v ? v.video_title : '') + '" has been reviewed.\n\nDecision: ' + decisionText + '\nResponse: ' + response + '\n\nCheck your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
+            let mailtoLink;
+            if (prof.email.includes('gmail.com')) {
+                mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(prof.email) + '&su=' + subject + '&body=' + body;
+            } else {
+                mailtoLink = 'https://outlook.cloud.microsoft/mail/deeplink/compose?to=' + encodeURIComponent(prof.email) + '&subject=' + subject + '&body=' + body;
+            }
+            showEmailBanner(mailtoLink, prof.full_name || fb.collector_id);
+        }
     }
+}
+
+function showDisputeEmailBanner(mailtoLink, collectorName, videoTitle, decision) {
+    const existing = document.getElementById('disputeEmailBanner');
+    if (existing) existing.remove();
+    
+    const banner = document.createElement('div');
+    banner.id = 'disputeEmailBanner';
+    banner.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1A1D27;border:1px solid ' + (decision==='accepted'?'var(--green)':'var(--dispute)') + ';border-radius:12px;padding:20px;z-index:9999;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
+    
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:13px;font-weight:600;color:#E8EAF0;margin-bottom:12px';
+    title.textContent = (decision==='accepted'?'✅':'❌') + ' Response sent to ' + collectorName;
+    
+    const sub = document.createElement('div');
+    sub.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:12px';
+    sub.textContent = 'Video: ' + (videoTitle||'Video');
+    
+    const emailBtn = document.createElement('a');
+    emailBtn.textContent = '📧 Notify Collector by Email';
+    emailBtn.href = mailtoLink;
+    emailBtn.target = '_blank';
+    emailBtn.rel = 'noopener noreferrer';
+    emailBtn.style.cssText = 'display:block;width:100%;background:' + (decision==='accepted'?'var(--green)':'var(--dispute)') + ';color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer;text-decoration:none;box-sizing:border-box';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;color:#7B8099;cursor:pointer;font-size:20px;line-height:1';
+    closeBtn.onclick = () => banner.remove();
+    
+    banner.appendChild(title);
+    banner.appendChild(sub);
+    banner.appendChild(emailBtn);
+    banner.appendChild(closeBtn);
+    document.body.appendChild(banner);
+    setTimeout(() => { if(document.getElementById('disputeEmailBanner')) banner.remove(); }, 30000);
 }
 
 function showEmailBanner(mailtoLink, collectorName) {
