@@ -770,7 +770,7 @@ function renderTrainerProfiles(allFbs) {
     const rows = S.collectors.map(c => {
         const cFbs = allFbs.filter(f => f.collector_id === c.hr_code);
         const total = cFbs.reduce((sum, f) => sum + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0);
-        const seen = cFbs.filter(f => f.is_seen).length;
+        const seen = cFbs.reduce((sum, f) => sum + (f.is_seen ? (f._videos && f._videos.length > 0 ? f._videos.length : 1) : 0), 0);
         const disputed = cFbs.reduce((sum, f) => sum + (f._videos ? f._videos.filter(v => v.is_disputed).length : (f.is_disputed ? 1 : 0)), 0);
         const unseenCount = total - seen;
         return `<tr style="cursor:pointer" onclick="openCollectorProfile('${c.hr_code}')">
@@ -830,9 +830,8 @@ async function openCollectorProfile(hrCode) {
         });
     }
     safeFbs.forEach(f => { f._videos = videosMap[f.id] || []; });
-    // Count videos not folders
     const total = safeFbs.reduce((s, f) => s + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0);
-    const seen = safeFbs.filter(f => f.is_seen === true).length;
+    const seen = safeFbs.reduce((s, f) => s + (f.is_seen ? (f._videos && f._videos.length > 0 ? f._videos.length : 1) : 0), 0);
     const disputed = safeFbs.reduce((s, f) => s + (f._videos ? f._videos.filter(v => v.is_disputed).length : (f.is_disputed ? 1 : 0)), 0);
     const unseen = total - seen;
     
@@ -1000,9 +999,11 @@ function renderAnalytics(allFbs, collectors, allVideos) {
         if (!collector || !collector.team) return;
         const t = teamMap[collector.team];
         if (!t) return;
-        t.total++;
-        if (f.is_seen) t.seen++;
-        if (f.is_disputed) t.disputed++;
+        const vCount = f._videos && f._videos.length > 0 ? f._videos.length : 1;
+        t.total += vCount;
+        if (f.is_seen) t.seen += vCount;
+        const dispCount = f._videos ? f._videos.filter(v => v.is_disputed).length : (f.is_disputed ? 1 : 0);
+        t.disputed += dispCount;
     });
 
     // Sort teams by total feedback
@@ -1057,9 +1058,9 @@ function renderAnalytics(allFbs, collectors, allVideos) {
         '</div>'
     ).join('') : '<div class="empty" style="padding:20px">No feedback titles yet</div>';
 
-    const totalFb = allFbs.length;
-    const totalSeen = allFbs.filter(f => f.is_seen).length;
-    const totalDisputed = allFbs.filter(f => f.is_disputed).length;
+    const totalFb = allFbs.reduce((s,f) => s + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0);
+    const totalSeen = allFbs.reduce((s,f) => s + (f.is_seen ? (f._videos && f._videos.length > 0 ? f._videos.length : 1) : 0), 0);
+    const totalDisputed = allFbs.reduce((s,f) => s + (f._videos ? f._videos.filter(v => v.is_disputed).length : (f.is_disputed ? 1 : 0)), 0);
     const activeTeams = teams.length;
 
     el('app').innerHTML = navHtml() + `
