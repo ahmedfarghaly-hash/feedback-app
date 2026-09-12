@@ -207,21 +207,21 @@ function convertDriveUrl(videoUrl) {
     return videoUrl || '';
 }
 
-async function doSendFeedback(collectorId, trainerName, date, videoUrls, title) {
-    const firstUrl = convertDriveUrl(videoUrls[0] || '');
+async function doSendFeedback(collectorId, trainerName, date, videos, sessionTitle) {
+    const firstUrl = convertDriveUrl(videos[0] ? videos[0].url : '');
     const { data: fbData, error: fbError } = await sb.from('feedbacks').insert({
         collector_id: collectorId, trainer_name: trainerName,
         feedback_date: date, video_url: firstUrl,
-        feedback_title: title, is_seen: false, is_disputed: false, dispute_reason: ''
+        feedback_title: sessionTitle, is_seen: false, is_disputed: false, dispute_reason: ''
     }).select().single();
     if (fbError || !fbData) return false;
-    const videos = videoUrls.map((url, i) => ({
+    const videoRows = videos.map(v => ({
         feedback_id: fbData.id,
-        video_url: convertDriveUrl(url),
-        video_title: videoUrls.length > 1 ? 'Video ' + (i+1) : title,
+        video_url: convertDriveUrl(v.url),
+        video_title: v.title || 'Video',
         is_disputed: false, dispute_reason: ''
     }));
-    const { error: vidError } = await sb.from('feedback_videos').insert(videos);
+    const { error: vidError } = await sb.from('feedback_videos').insert(videoRows);
     return !vidError;
 }
 
@@ -386,36 +386,50 @@ function renderCollector() {
 
 function fbCard(f, isNew) {
     const hasVideos = f._videos && f._videos.length > 0;
-    const isDisputed = f.is_disputed || (hasVideos && f._videos.every(v => v.is_disputed));
+    const allDisputed = hasVideos && f._videos.every(v => v.is_disputed);
+    const isDisputed = f.is_disputed || allDisputed;
     const cls = isDisputed ? 'card-d' : isNew ? 'card' : 'card-s';
     const tag = isDisputed ? '<span class="tag tag-d">Disputed</span>'
         : isNew ? '<span class="tag tag-n">New</span>' : '<span class="tag tag-s">Seen</span>';
-    const titleHtml = f.feedback_title ? '<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">' + f.feedback_title + '</div>' : '';
     
     let videosHtml = '';
     if (hasVideos) {
-        videosHtml = f._videos.map((v, i) => {
+        // Folder style header
+        const folderHeader = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;background:var(--bg);border-radius:8px">' +
+            '<span style="font-size:18px">📁</span>' +
+            '<div><div style="font-weight:600;font-size:14px">' + (f.feedback_title || fmtDate(f.feedback_date)) + '</div>' +
+            '<div style="font-size:12px;color:var(--text-muted)">' + f._videos.length + ' video' + (f._videos.length > 1 ? 's' : '') + ' · From: ' + (f.trainer_name||'Trainer') + '</div></div>' +
+            '</div>';
+        
+        const videosList = f._videos.map((v, i) => {
             const vTag = v.is_disputed ? '<span class="tag tag-d" style="font-size:10px">Disputed</span>' : '';
             const vDispBtn = !v.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" data-vid="' + v.id + '" data-fid="' + f.id + '" onclick="openVideoDispute(this.dataset.vid,this.dataset.fid)">Dispute</button></div>' : '';
             const vReason = v.is_disputed && v.dispute_reason ? '<div class="dr" style="margin-top:6px"><strong>Dispute reason:</strong> ' + v.dispute_reason + '</div>' : '';
+            const vTitle = v.video_title ? '<div style="font-size:13px;font-weight:600;margin-bottom:8px">' + v.video_title + '</div>' : '';
             return '<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
-                '<span style="font-size:12px;font-weight:600;color:var(--text-muted)">VIDEO ' + (i+1) + '</span>' + vTag +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+                vTitle + vTag +
                 '</div>' +
                 '<iframe src="' + v.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen style="margin-bottom:0"></iframe>' +
-                vReason + vDispBtn +
-                '</div>';
+                vReason + vDispBtn + '</div>';
         }).join('');
+        
+        videosHtml = folderHeader + videosList;
+        
+        return '<div class="' + cls + '">' +
+            '<div class="ch"><div><div class="ct">' + fmtDate(f.feedback_date) + '</div><div class="cd">From: ' + (f.trainer_name||'Trainer') + '</div></div><div>' + tag + '</div></div>' +
+            videosHtml + '</div>';
     } else if (f.video_url) {
         const vDispBtn = !f.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" data-id="' + f.id + '" onclick="openDispute(this.dataset.id)">Dispute</button></div>' : '';
         const vReason = f.is_disputed && f.dispute_reason ? '<div class="dr"><strong>Dispute reason:</strong> ' + f.dispute_reason + '</div>' : '';
+        const titleHtml = f.feedback_title ? '<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">' + f.feedback_title + '</div>' : '';
         videosHtml = '<iframe src="' + f.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen></iframe>' + vReason + vDispBtn;
+        return '<div class="' + cls + '">' +
+            '<div class="ch"><div><div class="ct">' + fmtDate(f.feedback_date) + '</div><div class="cd">From: ' + (f.trainer_name||'Trainer') + '</div></div><div>' + tag + '</div></div>' +
+            titleHtml + videosHtml + '</div>';
     }
     
-    return '<div class="' + cls + '">' +
-        '<div class="ch"><div><div class="ct">' + fmtDate(f.feedback_date) + '</div><div class="cd">From: ' + (f.trainer_name||'Trainer') + '</div></div><div>' + tag + '</div></div>' +
-        titleHtml + videosHtml +
-        '</div>';
+    return '<div class="' + cls + '"><div class="ch"><div><div class="ct">' + fmtDate(f.feedback_date) + '</div><div class="cd">From: ' + (f.trainer_name||'Trainer') + '</div></div><div>' + tag + '</div></div></div>';
 }
 
 function bindIframes() {
@@ -517,10 +531,11 @@ function renderTrainerFeedback() {
                     <div id="fbColSelected" style="display:none;margin-top:6px;font-size:12px;color:var(--accent)"></div>
                 </div>
                 <div class="fg"><label class="lbl">FEEDBACK DATE</label><input type="date" id="fbDate" value="${today()}" /></div>
-                <div class="fg"><label class="lbl">FEEDBACK TITLE</label><input type="text" id="fbTitle" placeholder="e.g. Call Review - Customer Objection" /></div>
                 <div id="videosContainer">
-                    <div class="fg">
-                        <label class="lbl">VIDEO 1</label>
+                    <div class="fg video-group">
+                        <label class="lbl">VIDEO 1 TITLE</label>
+                        <input type="text" class="video-title-input" placeholder="e.g. Customer Objection Call" style="margin-bottom:6px" />
+                        <label class="lbl">VIDEO 1 URL</label>
                         <input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." />
                     </div>
                 </div>
@@ -586,26 +601,35 @@ function addVideoField() {
     const container = el('videosContainer');
     const count = container.querySelectorAll('.video-url-input').length + 1;
     const div = document.createElement('div');
-    div.className = 'fg';
-    div.innerHTML = '<label class="lbl">VIDEO ' + count + '</label>' +
-        '<div style="display:flex;gap:8px">' +
-        '<input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." style="flex:1" />' +
-        '<button class="bs bs-outline" onclick="this.parentElement.parentElement.remove()" style="padding:10px 12px">✕</button>' +
-        '</div>';
+    div.className = 'fg video-group';
+    div.style.cssText = 'border-top:1px solid var(--border);padding-top:12px;margin-top:4px';
+    div.innerHTML = 
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+        '<label class="lbl" style="margin:0">VIDEO ' + count + ' TITLE</label>' +
+        '<button class="bs bs-outline" onclick="this.closest('.video-group').remove()" style="padding:4px 10px;font-size:11px">✕ Remove</button>' +
+        '</div>' +
+        '<input type="text" class="video-title-input" placeholder="e.g. Call Review" style="margin-bottom:6px" />' +
+        '<label class="lbl">VIDEO ' + count + ' URL</label>' +
+        '<input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." />';
     container.appendChild(div);
 }
 
 async function sendFb() {
-    const col = _selectedCollectorHR, date = el('fbDate').value, title = el('fbTitle').value;
-    const videoInputs = document.querySelectorAll('.video-url-input');
-    const videoUrls = Array.from(videoInputs).map(i => i.value.trim()).filter(v => v);
+    const col = _selectedCollectorHR, date = el('fbDate').value;
+    const urlInputs = document.querySelectorAll('.video-url-input');
+    const titleInputs = document.querySelectorAll('.video-title-input');
+    const videos = Array.from(urlInputs).map((inp, i) => ({
+        url: inp.value.trim(),
+        title: titleInputs[i] ? titleInputs[i].value.trim() : 'Video ' + (i+1)
+    })).filter(v => v.url);
     
-    if (!col || !date || !title) { el('fberr').textContent='Please fill in all fields'; show('fberr'); return; }
-    if (videoUrls.length === 0) { el('fberr').textContent='Please add at least one video'; show('fberr'); return; }
+    if (!col || !date) { el('fberr').textContent='Please select a collector and date'; show('fberr'); return; }
+    if (videos.length === 0) { el('fberr').textContent='Please add at least one video'; show('fberr'); return; }
     hide('fberr');
     const btn = document.querySelector('#app .bs-primary');
     btn.textContent = 'Sending...'; btn.disabled = true;
-    const ok = await doSendFeedback(col, S.user.full_name, date, videoUrls, title);
+    const sessionTitle = col + ' - ' + fmtDate(date);
+    const ok = await doSendFeedback(col, S.user.full_name, date, videos, sessionTitle);
     btn.textContent = 'Send Feedback'; btn.disabled = false;
     if (ok) {
         // Get collector email
@@ -614,7 +638,7 @@ async function sendFb() {
         const collectorName = collector ? collector.full_name : col;
         const fbTitle = el('fbTitle').value;
         
-        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; el('fbTitle').value = ''; document.querySelectorAll('.video-url-input').forEach(i => i.value = '');
+        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; document.querySelectorAll('.video-url-input').forEach(i => i.value = ''); document.querySelectorAll('.video-title-input').forEach(i => i.value = '');
         
         // Show success with email button
         const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
