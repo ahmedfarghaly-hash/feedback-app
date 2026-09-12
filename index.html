@@ -184,7 +184,17 @@ async function fetchAllFeedbacks() {
         const { data: profiles } = await sb.from('profiles').select('full_name,hr_code').in('hr_code', hrCodes);
         (profiles || []).forEach(p => { profileMap[p.hr_code] = p; });
     }
-    return fbs.map(f => ({ ...f, _profile: profileMap[f.collector_id] || null }));
+    // Fetch videos for all feedbacks
+    const fbIds = fbs.map(f => f.id).filter(Boolean);
+    let videosMap = {};
+    if (fbIds.length > 0) {
+        const { data: videos } = await sb.from('feedback_videos').select('*').in('feedback_id', fbIds);
+        (videos || []).forEach(v => {
+            if (!videosMap[v.feedback_id]) videosMap[v.feedback_id] = [];
+            videosMap[v.feedback_id].push(v);
+        });
+    }
+    return fbs.map(f => ({ ...f, _profile: profileMap[f.collector_id] || null, _videos: videosMap[f.id] || [] }));
 }
 
 async function fetchCollectors() {
@@ -524,13 +534,26 @@ function renderTrainerFeedback() {
 
     const rows = filtered.map(f => {
         const p = f._profile;
-        const st = f.is_seen ? `<span class="tag tag-s">Seen</span>` : `<span class="tag tag-n">Not Seen</span>`;
-        const dt = f.is_disputed ? `<span class="tag tag-d" title="${f.dispute_reason||''}">Disputed ⚠️</span>` : `<span style="color:var(--text-dim)">—</span>`;
-        return `<tr>
-            <td>${p ? p.full_name : '—'} <span style="color:var(--text-muted);font-size:11px">${p ? p.hr_code : ''}</span></td>
-            <td>${fmtDate(f.feedback_date)}</td>
-            <td>${st}</td><td>${dt}</td>
-        </tr>`;
+        const videoCount = f._videos && f._videos.length > 0 ? f._videos.length : 1;
+        const st = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
+        const disputedVideos = f._videos ? f._videos.filter(v => v.is_disputed) : [];
+        let dt;
+        if (disputedVideos.length > 0) {
+            const titles = disputedVideos.map(v => v.video_title || 'Video').join(', ');
+            dt = '<span class="tag tag-d" title="' + titles + '">Disputed ⚠️ (' + disputedVideos.length + '/' + videoCount + ')</span>';
+        } else if (f.is_disputed) {
+            dt = '<span class="tag tag-d">Disputed ⚠️</span>';
+        } else {
+            dt = '<span style="color:var(--text-dim)">—</span>';
+        }
+        const name = p ? p.full_name : '—';
+        const hr = p ? p.hr_code : '';
+        return '<tr>' +
+            '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
+            '<td>' + fmtDate(f.feedback_date) + '</td>' +
+            '<td><span style="font-size:11px;color:var(--text-muted)">' + videoCount + ' video' + (videoCount>1?'s':'') + '</span> ' + st + '</td>' +
+            '<td>' + dt + '</td>' +
+            '</tr>';
     }).join('');
 
     const opts = S.collectors.map(c => `<option value="${c.id}">${c.full_name} (${c.hr_code})</option>`).join('');
@@ -736,9 +759,9 @@ async function loadTrainerProfiles() {
 function renderTrainerProfiles(allFbs) {
     const rows = S.collectors.map(c => {
         const cFbs = allFbs.filter(f => f.collector_id === c.hr_code);
-        const total = cFbs.length;
+        const total = cFbs.reduce((sum, f) => sum + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0);
         const seen = cFbs.filter(f => f.is_seen).length;
-        const disputed = cFbs.filter(f => f.is_disputed).length;
+        const disputed = cFbs.reduce((sum, f) => sum + (f._videos ? f._videos.filter(v => v.is_disputed).length : (f.is_disputed ? 1 : 0)), 0);
         const unseenCount = total - seen;
         return `<tr style="cursor:pointer" onclick="openCollectorProfile('${c.hr_code}')">
             <td style="color:var(--accent);font-weight:600">${c.hr_code}</td>
