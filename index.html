@@ -1278,7 +1278,14 @@ async function submitDisputeResponse(videoId) {
             const decisionText = decision === 'accepted' ? '✅ Accepted' : '❌ Rejected';
             const subject = encodeURIComponent('Dispute Response - ' + (v ? v.video_title : ''));
             const videoLink = v && v.video_url ? v.video_url : '';
-            const body = encodeURIComponent('Hi ' + (prof.full_name||'') + ',\n\nYour dispute on video "' + (v ? v.video_title : '') + '" has been reviewed.\n\nDecision: ' + decisionText + '\nResponse: ' + response + (videoLink ? '\n\nVideo link:\n' + videoLink : '') + '\n\nCheck your feedback here:\n' + appUrl + '\n\nBest regards,\n' + S.user.full_name);
+            const bodyHtml = 'Hi ' + (prof.full_name||'') + ',%0A%0A' +
+                'Your dispute on video "' + (v ? v.video_title : '') + '" has been reviewed.%0A%0A' +
+                'Decision: ' + decisionText + '%0A' +
+                'Response: ' + response + '%0A%0A' +
+                (videoLink ? 'Watch the video here:%0A' + videoLink + '%0A%0A' : '') +
+                'Check your feedback here:%0A' + appUrl + '%0A%0A' +
+                'Best regards,%0A' + S.user.full_name;
+            const body = bodyHtml;
             let mailtoLink;
             if (prof.email.includes('gmail.com')) {
                 mailtoLink = 'https://mail.google.com/mail/?view=cm&to=' + encodeURIComponent(prof.email) + '&su=' + subject + '&body=' + body;
