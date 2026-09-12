@@ -186,9 +186,12 @@ async function fetchCollectors() {
 }
 
 async function doSendFeedback(collectorId, trainerName, date, videoUrl, title) {
-    // Auto-convert Google Drive view link to preview link
-    if (videoUrl.includes('drive.google.com') && videoUrl.includes('/view')) {
-        videoUrl = videoUrl.split('/view')[0] + '/preview';
+    // Auto-convert any Google Drive link to preview link
+    if (videoUrl.includes('drive.google.com')) {
+        const fileIdMatch = videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (fileIdMatch) {
+            videoUrl = 'https://drive.google.com/file/d/' + fileIdMatch[1] + '/preview';
+        }
     }
     const { error } = await sb.from('feedbacks').insert({
         collector_id: collectorId, trainer_name: trainerName,
