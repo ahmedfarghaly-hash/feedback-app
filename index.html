@@ -606,7 +606,7 @@ async function sendFb() {
         const collectorName = collector ? collector.full_name : col;
         const fbTitle = el('fbTitle').value;
         
-        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; el('fbUrl').value = ''; el('fbTitle').value = '';
+        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; el('fbTitle').value = ''; document.querySelectorAll('.video-url-input').forEach(i => i.value = '');
         
         // Show success with email button
         const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
@@ -1034,11 +1034,17 @@ function showEmailBanner(mailtoLink, collectorName) {
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-    await ensureTrainer();
+    console.log('App starting...');
+    try {
+        await ensureTrainer();
     if (S.user) {
         if (S.user.role === 'trainer') { S.view='trainer_feedback'; loadTrainerFeedback(); }
         else { S.view='collector'; loadCollector(); }
     } else { renderLogin(); }
+    } catch(e) {
+        console.error('Init error:', e);
+        document.getElementById('app').innerHTML = '<div style="color:red;padding:40px">Error: ' + e.message + '</div>';
+    }
 }
 
 init();
