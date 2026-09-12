@@ -186,12 +186,12 @@ async function fetchCollectors() {
 }
 
 async function doSendFeedback(collectorId, trainerName, date, videoUrl, title) {
-    // Auto-convert any Google Drive link to correct embed format
+    // Auto-convert any Google Drive link to correct format
     if (videoUrl.includes('drive.google.com')) {
         const folderMatch = videoUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
         const fileMatch = videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
         if (folderMatch) {
-            videoUrl = 'https://drive.google.com/embedfolderv1/folders/' + folderMatch[1] + '?usp=sharing';
+            videoUrl = 'FOLDER:https://drive.google.com/drive/folders/' + folderMatch[1];
         } else if (fileMatch) {
             videoUrl = 'https://drive.google.com/file/d/' + fileMatch[1] + '/preview';
         }
@@ -363,7 +363,19 @@ function fbCard(f, isNew) {
     const cls = f.is_disputed ? 'card-d' : isNew ? 'card' : 'card-s';
     const tag = f.is_disputed ? `<span class="tag tag-d">Disputed</span>`
         : isNew ? `<span class="tag tag-n">New</span>` : `<span class="tag tag-s">Seen</span>`;
-    const video = f.video_url ? `<iframe src="${f.video_url}" class="vframe" data-id="${f.id}" data-seen="${f.is_seen}" allowfullscreen></iframe>` : '';
+    let video = '';
+    if (f.video_url) {
+        if (f.video_url.startsWith('FOLDER:')) {
+            const folderUrl = f.video_url.replace('FOLDER:', '');
+            video = '<a href="' + folderUrl + '" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;background:var(--surface-hover);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:12px;text-decoration:none;color:var(--text)">' +
+                '<span style="font-size:24px">📂</span>' +
+                '<div><div style="font-weight:600;font-size:14px">Open Feedback Folder</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Click to view all feedback videos</div></div>' +
+                '<span style="margin-left:auto;color:var(--accent);font-size:12px">Open ↗</span>' +
+                '</a>';
+        } else {
+            video = \`<iframe src="\${f.video_url}" class="vframe" data-id="\${f.id}" data-seen="\${f.is_seen}" allowfullscreen></iframe>\`;
+        }
+    }
     const reason = f.is_disputed && f.dispute_reason ? `<div class="dr"><strong>Dispute reason:</strong> ${f.dispute_reason}</div>` : '';
     const dBtn = !f.is_disputed ? `<div class="fe"><button class="bs bs-dispute" onclick="openDispute('${f.id}')">Dispute</button></div>` : '';
     const titleHtml = f.feedback_title ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">${f.feedback_title}</div>` : '';
