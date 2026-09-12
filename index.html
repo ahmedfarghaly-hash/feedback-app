@@ -181,7 +181,7 @@ async function fetchAllFeedbacks() {
     const hrCodes = [...new Set(fbs.map(f => f.collector_id).filter(Boolean))];
     let profileMap = {};
     if (hrCodes.length > 0) {
-        const { data: profiles } = await sb.from('profiles').select('full_name,hr_code').in('hr_code', hrCodes);
+        const { data: profiles } = await sb.from('profiles').select('full_name,hr_code,email').in('hr_code', hrCodes);
         (profiles || []).forEach(p => { profileMap[p.hr_code] = p; });
     }
     // Fetch videos for all feedbacks
@@ -1145,7 +1145,7 @@ async function loadTrainerDisputes() {
     (feedbacks || []).forEach(f => { fbMap[f.id] = f; });
     
     const hrCodes = [...new Set((feedbacks||[]).map(f => f.collector_id).filter(Boolean))];
-    const { data: profiles } = await sb.from('profiles').select('full_name,hr_code').in('hr_code', hrCodes);
+    const { data: profiles } = await sb.from('profiles').select('full_name,hr_code,email').in('hr_code', hrCodes);
     const profMap = {};
     (profiles || []).forEach(p => { profMap[p.hr_code] = p; });
     
