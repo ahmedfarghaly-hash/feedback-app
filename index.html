@@ -468,9 +468,13 @@ async function confirmDispute() {
     if (!reason) { show('derr'); return; }
     hide('derr');
     if (S.disputeTarget.type === 'video') {
-        await sb.from('feedback_videos').update({ is_disputed: true, dispute_reason: reason }).eq('id', S.disputeTarget.id);
-        // Also update the parent feedback so trainer can see it
-        await sb.from('feedbacks').update({ is_disputed: true, dispute_reason: reason }).eq('id', S.disputeTarget.feedbackId);
+        const vidId = String(S.disputeTarget.id);
+        const fbId = String(S.disputeTarget.feedbackId);
+        console.log('Disputing video:', vidId, 'feedback:', fbId);
+        const { error: vidErr } = await sb.from('feedback_videos').update({ is_disputed: true, dispute_reason: reason }).eq('id', vidId);
+        console.log('Video update error:', vidErr);
+        const { error: fbErr } = await sb.from('feedbacks').update({ is_disputed: true, dispute_reason: reason }).eq('id', fbId);
+        console.log('Feedback update error:', fbErr);
         const fb = S.feedbacks.find(f => f.id === S.disputeTarget.feedbackId);
         if (fb) {
             fb.is_disputed = true;
