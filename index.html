@@ -388,18 +388,18 @@ function fbCard(f, isNew) {
     if (hasVideos) {
         videosHtml = f._videos.map((v, i) => {
             const vTag = v.is_disputed ? '<span class="tag tag-d" style="font-size:10px">Disputed</span>' : '';
-            const vDispBtn = !v.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" onclick="openVideoDispute('' + v.id + '','' + f.id + '')">Dispute</button></div>' : '';
+            const vDispBtn = !v.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" data-vid="' + v.id + '" data-fid="' + f.id + '" onclick="openVideoDispute(this.dataset.vid,this.dataset.fid)">Dispute</button></div>' : '';
             const vReason = v.is_disputed && v.dispute_reason ? '<div class="dr" style="margin-top:6px"><strong>Dispute reason:</strong> ' + v.dispute_reason + '</div>' : '';
             return '<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
                 '<span style="font-size:12px;font-weight:600;color:var(--text-muted)">VIDEO ' + (i+1) + '</span>' + vTag +
                 '</div>' +
                 '<iframe src="' + v.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen style="margin-bottom:0"></iframe>' +
-                vReason + vDispBtn +
+                vReason + vDispBtn2 +
                 '</div>';
         }).join('');
     } else if (f.video_url) {
-        const vDispBtn = !f.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" onclick="openDispute('' + f.id + '')">Dispute</button></div>' : '';
+        const vDispBtn = !f.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" data-id="' + f.id + '" onclick="openDispute(this.dataset.id)">Dispute</button></div>' : '';
         const vReason = f.is_disputed && f.dispute_reason ? '<div class="dr"><strong>Dispute reason:</strong> ' + f.dispute_reason + '</div>' : '';
         videosHtml = '<iframe src="' + f.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen></iframe>' + vReason + vDispBtn;
     }
