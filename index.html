@@ -147,14 +147,7 @@ let S = {
 
 // ── DB helpers ───────────────────────────────────────────────────────────────
 async function ensureTrainer() {
-    try {
-        const { data, error } = await sb.from('profiles').select('id').eq('hr_code','TRAINER').maybeSingle();
-        if (!data) {
-            await sb.from('profiles').insert([{ hr_code:'TRAINER', full_name:'Trainer', role:'trainer' }]);
-        }
-    } catch(e) {
-        console.log('ensureTrainer error:', e);
-    }
+    // TRAINER already exists in DB, no need to check
 }
 
 async function loginUser(hrCode) {
@@ -218,15 +211,14 @@ async function doSendFeedback(collectorId, trainerName, date, videos, sessionTit
     if (fbError) { console.error('feedback insert error:', fbError); return false; }
     
     // Get the feedback we just inserted
-    const { data: fbData } = await sb.from('feedbacks')
+    const { data: fbRows } = await sb.from('feedbacks')
         .select('id')
         .eq('collector_id', collectorId)
         .eq('feedback_date', date)
         .eq('feedback_title', sessionTitle)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
     
+    const fbData = fbRows && fbRows.length > 0 ? fbRows[0] : null;
     if (!fbData) return false;
     
     // Insert videos
