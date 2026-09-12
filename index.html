@@ -911,10 +911,12 @@ async function loadTrainerAnalytics() {
     S.view = 'trainer_analytics';
     el('app').innerHTML = navHtml() + '<div class="page-wide"><div class="loading">Loading...</div></div>';
     const [allFbs, allCollectors] = await Promise.all([fetchAllFeedbacks(), fetchCollectors()]);
-    renderAnalytics(allFbs, allCollectors);
+    // Also fetch all video titles
+    const { data: allVideos } = await sb.from('feedback_videos').select('video_title');
+    renderAnalytics(allFbs, allCollectors, allVideos || []);
 }
 
-function renderAnalytics(allFbs, collectors) {
+function renderAnalytics(allFbs, collectors, allVideos) {
     // Build team map
     const teamMap = {};
     collectors.forEach(c => {
@@ -940,11 +942,11 @@ function renderAnalytics(allFbs, collectors) {
 
     const allTeams = Object.entries(teamMap).sort((a, b) => a[0].localeCompare(b[0]));
 
-    // Most common titles
+    // Most common video titles
     const titleCount = {};
-    allFbs.forEach(f => {
-        if (f.feedback_title) {
-            titleCount[f.feedback_title] = (titleCount[f.feedback_title] || 0) + 1;
+    allVideos.forEach(v => {
+        if (v.video_title) {
+            titleCount[v.video_title] = (titleCount[v.video_title] || 0) + 1;
         }
     });
     const topTitles = Object.entries(titleCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
