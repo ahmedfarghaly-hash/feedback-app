@@ -551,6 +551,7 @@ function renderTrainerCollectors() {
     const rows = S.collectors.map(c => `<tr>
         <td style="color:var(--accent);font-weight:600">${c.hr_code}</td>
         <td>${c.full_name}</td>
+        <td style="color:var(--text-muted)">${c.team || '—'}</td>
     </tr>`).join('');
 
     el('app').innerHTML = navHtml() + `
@@ -565,7 +566,7 @@ function renderTrainerCollectors() {
                 <button class="bs bs-primary bs-full" style="margin-top:4px" onclick="addCol()">Add Collector</button>
             </div>
             ${S.collectors.length > 0 ? `<div class="tw" style="margin-top:28px"><table>
-                <thead><tr><th>HR CODE</th><th>NAME</th></tr></thead>
+                <thead><tr><th>HR CODE</th><th>NAME</th><th>TEAM</th></tr></thead>
                 <tbody>${rows}</tbody></table></div>` : ''}
         </div>`;
 }
@@ -607,6 +608,7 @@ function renderTrainerProfiles(allFbs) {
         return `<tr style="cursor:pointer" onclick="openCollectorProfile('${c.hr_code}')">
             <td style="color:var(--accent);font-weight:600">${c.hr_code}</td>
             <td>${c.full_name}</td>
+            <td style="color:var(--text-muted)">${c.team || '—'}</td>
             <td><span class="tag ${total > 0 ? 'tag-n' : 'tag-s'}">${total}</span></td>
             <td><span class="tag tag-s">${seen}</span></td>
             <td><span class="tag ${unseenCount > 0 ? 'tag-n' : 'tag-s'}">${unseenCount}</span></td>
@@ -633,7 +635,7 @@ function renderTrainerProfiles(allFbs) {
             <div class="tw">
                 <table>
                     <thead><tr>
-                        <th>HR CODE</th><th>NAME</th>
+                        <th>HR CODE</th><th>NAME</th><th>TEAM</th>
                         <th>TOTAL FEEDBACK</th><th>SEEN</th>
                         <th>NOT SEEN</th><th>DISPUTED</th>
                     </tr></thead>
