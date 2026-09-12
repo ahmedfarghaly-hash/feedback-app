@@ -271,6 +271,7 @@ function navHtml() {
         <button class="nav-link ${S.view==='trainer_collectors'?'active':''}" onclick="nav('trainer_collectors')">Collectors</button>
         <button class="nav-link ${S.view==='trainer_profiles'?'active':''}" onclick="nav('trainer_profiles')">Profiles</button>
         <button class="nav-link ${S.view==='trainer_analytics'?'active':''}" onclick="nav('trainer_analytics')">Analytics</button>
+        <button class="nav-link ${S.view==='trainer_disputes'?'active':''}" onclick="nav('trainer_disputes')">Disputes</button>
     ` : '';
     return `<nav class="nav">
         <div class="row"><span class="nav-brand">FEEDBACK</span><div class="nav-links">${links}</div></div>
@@ -287,6 +288,7 @@ function nav(view) {
     else if (view === 'trainer_collectors') loadTrainerCollectors();
     else if (view === 'trainer_profiles') loadTrainerProfiles();
     else if (view === 'trainer_analytics') loadTrainerAnalytics();
+    else if (view === 'trainer_disputes') loadTrainerDisputes();
 }
 
 function logout() {
@@ -422,7 +424,19 @@ function fbCard(f, isNew) {
         const videosList = f._videos.map((v, i) => {
             const vTag = v.is_disputed ? '<span class="tag tag-d" style="font-size:10px">Disputed</span>' : '';
             const vDispBtn = !v.is_disputed ? '<div class="fe" style="margin-top:6px"><button class="bs bs-dispute" data-vid="' + v.id + '" data-fid="' + f.id + '" onclick="openVideoDispute(this.dataset.vid,this.dataset.fid)">Dispute</button></div>' : '';
-            const vReason = v.is_disputed && v.dispute_reason ? '<div class="dr" style="margin-top:6px"><strong>Dispute reason:</strong> ' + v.dispute_reason + '</div>' : '';
+            let vReason = '';
+            if (v.is_disputed && v.dispute_reason) {
+                let responseHtml = '';
+                if (v.dispute_response) {
+                    const isAccepted = v.dispute_status === 'accepted';
+                    const color = isAccepted ? 'var(--green)' : 'var(--dispute)';
+                    const label = isAccepted ? '✅ ACCEPTED' : '❌ REJECTED';
+                    responseHtml = '<div style="margin-top:8px;padding:8px 12px;background:var(--surface-hover);border-radius:6px;border-left:3px solid ' + color + '">' +
+                        '<div style="font-size:11px;font-weight:600;color:' + color + ';margin-bottom:4px">' + label + '</div>' +
+                        '<div style="font-size:12px;color:var(--text-muted)">' + v.dispute_response + '</div></div>';
+                }
+                vReason = '<div class="dr" style="margin-top:6px"><strong>Your dispute:</strong> ' + v.dispute_reason + responseHtml + '</div>';
+            }
             const vTitle = v.video_title ? '<div style="font-size:13px;font-weight:600;margin-bottom:8px">' + v.video_title + '</div>' : '';
             return '<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
@@ -1110,6 +1124,151 @@ function renderAnalytics(allFbs, collectors, allVideos) {
                 </div>
             </div>
         </div>`;
+}
+
+// ── Trainer Disputes ────────────────────────────────────────────────────────
+async function loadTrainerDisputes() {
+    S.view = 'trainer_disputes';
+    S._disputeFilter = S._disputeFilter || 'all';
+    el('app').innerHTML = navHtml() + '<div class="page-wide"><div class="loading">Loading...</div></div>';
+    
+    const { data: videos } = await sb.from('feedback_videos').select('*').eq('is_disputed', true);
+    if (!videos || videos.length === 0) {
+        el('app').innerHTML = navHtml() + '<div class="page-wide"><div class="ph"><div class="pt">Disputes</div></div><div class="empty"><div class="empty-icon">✅</div>No disputes yet</div></div>';
+        return;
+    }
+    
+    // Get feedback and collector info
+    const fbIds = [...new Set(videos.map(v => v.feedback_id).filter(Boolean))];
+    const { data: feedbacks } = await sb.from('feedbacks').select('*').in('id', fbIds);
+    const fbMap = {};
+    (feedbacks || []).forEach(f => { fbMap[f.id] = f; });
+    
+    const hrCodes = [...new Set((feedbacks||[]).map(f => f.collector_id).filter(Boolean))];
+    const { data: profiles } = await sb.from('profiles').select('full_name,hr_code').in('hr_code', hrCodes);
+    const profMap = {};
+    (profiles || []).forEach(p => { profMap[p.hr_code] = p; });
+    
+    renderTrainerDisputes(videos, fbMap, profMap);
+}
+
+function renderTrainerDisputes(videos, fbMap, profMap) {
+    const filter = S._disputeFilter || 'all';
+    const filtered = filter === 'all' ? videos
+        : filter === 'pending' ? videos.filter(v => !v.dispute_status || v.dispute_status === 'pending')
+        : filter === 'accepted' ? videos.filter(v => v.dispute_status === 'accepted')
+        : videos.filter(v => v.dispute_status === 'rejected');
+
+    const filterBtns = ['all','pending','accepted','rejected'].map(f =>
+        '<button class="bs bs-outline ' + (filter===f?'active':'') + '" onclick="setDisputeFilter(this.dataset.f)" data-f="' + f + '">' +
+        (f==='all'?'All':f==='pending'?'Pending':f==='accepted'?'Accepted':'Rejected') + '</button>'
+    ).join('');
+
+    const rows = filtered.map(v => {
+        const fb = fbMap[v.feedback_id] || {};
+        const prof = profMap[fb.collector_id] || {};
+        const statusTag = !v.dispute_status || v.dispute_status === 'pending'
+            ? '<span class="tag" style="background:#2A2E40;color:var(--text-muted)">Pending</span>'
+            : v.dispute_status === 'accepted'
+            ? '<span class="tag" style="background:var(--green-dim);color:var(--green)">Accepted</span>'
+            : '<span class="tag tag-d">Rejected</span>';
+        
+        return '<tr>' +
+            '<td style="font-weight:600">' + (prof.full_name||'—') + ' <span style="color:var(--text-muted);font-size:11px">' + (fb.collector_id||'') + '</span></td>' +
+            '<td>' + fmtDate(fb.feedback_date) + '</td>' +
+            '<td style="color:var(--text-muted);font-size:12px">' + (v.video_title||'—') + '</td>' +
+            '<td style="font-size:12px;color:var(--dispute)">' + (v.dispute_reason||'—') + '</td>' +
+            '<td>' + statusTag + '</td>' +
+            '<td>' + (v.dispute_response ? '<span style="font-size:12px;color:var(--text-muted)">' + v.dispute_response + '</span>' : '<span style="color:var(--text-dim)">—</span>') + '</td>' +
+            '<td><button class="bs bs-outline" style="font-size:11px;padding:5px 10px" onclick="openDisputeResponse(this.dataset.id)" data-id="' + v.id + '">Respond</button></td>' +
+            '</tr>';
+    }).join('');
+
+    const tableHtml = filtered.length === 0
+        ? '<div class="empty" style="padding:24px">No disputes found</div>'
+        : '<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>VIDEO</th><th>REASON</th><th>STATUS</th><th>RESPONSE</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+
+    el('app').innerHTML = navHtml() + `
+        <div class="page-wide">
+            <div class="ph"><div class="pt">Disputes</div><div class="ps">${filtered.length} dispute${filtered.length!==1?'s':''}</div></div>
+            <div class="fr" style="margin-bottom:16px">
+                <div class="fb-btns">${filterBtns}</div>
+            </div>
+            ${tableHtml}
+        </div>`;
+    
+    // Store data for respond modal
+    window._disputeVideos = videos;
+    window._disputeFbMap = fbMap;
+    window._disputeProfMap = profMap;
+}
+
+function setDisputeFilter(f) {
+    S._disputeFilter = f;
+    renderTrainerDisputes(window._disputeVideos, window._disputeFbMap, window._disputeProfMap);
+}
+
+function openDisputeResponse(videoId) {
+    const v = window._disputeVideos.find(v => v.id === videoId);
+    if (!v) return;
+    
+    const existing = document.getElementById('disputeResponseModal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'disputeResponseModal';
+    modal.className = 'overlay';
+    modal.innerHTML = `
+        <div class="modal">
+            <div class="mt">Respond to Dispute</div>
+            <div class="ms">Video: <strong>${v.video_title||'—'}</strong><br>Reason: <em style="color:var(--dispute)">${v.dispute_reason||'—'}</em></div>
+            <div class="fg">
+                <label class="lbl">YOUR RESPONSE</label>
+                <textarea id="disputeResponseText" placeholder="Explain your response...">${v.dispute_response||''}</textarea>
+            </div>
+            <div class="fg">
+                <label class="lbl">DECISION</label>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                    <button id="acceptBtn" class="bs ${v.dispute_status==='accepted'?'bs-primary':'bs-outline'}" style="flex:1;padding:10px" onclick="selectDecision('accepted')">✅ Accept</button>
+                    <button id="rejectBtn" class="bs ${v.dispute_status==='rejected'?'bs-dispute':'bs-outline'}" style="flex:1;padding:10px" onclick="selectDecision('rejected')">❌ Reject</button>
+                </div>
+            </div>
+            <div id="decisionError" class="err" style="display:none">Please select Accept or Reject</div>
+            <div class="ma">
+                <button class="bs bs-primary" onclick="submitDisputeResponse('${videoId}')">Submit Response</button>
+                <button class="bs bs-outline" onclick="document.getElementById('disputeResponseModal').remove()">Cancel</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    window._selectedDecision = v.dispute_status || null;
+}
+
+function selectDecision(decision) {
+    window._selectedDecision = decision;
+    const acceptBtn = document.getElementById('acceptBtn');
+    const rejectBtn = document.getElementById('rejectBtn');
+    if (acceptBtn) { acceptBtn.className = 'bs ' + (decision==='accepted'?'bs-primary':'bs-outline'); acceptBtn.style.flex='1'; acceptBtn.style.padding='10px'; }
+    if (rejectBtn) { rejectBtn.className = 'bs ' + (decision==='rejected'?'bs-dispute':'bs-outline'); rejectBtn.style.flex='1'; rejectBtn.style.padding='10px'; }
+}
+
+async function submitDisputeResponse(videoId) {
+    const response = document.getElementById('disputeResponseText').value.trim();
+    const decision = window._selectedDecision;
+    
+    if (!decision) { show('decisionError'); return; }
+    if (!response) { document.getElementById('decisionError').textContent='Please write a response'; show('decisionError'); return; }
+    
+    const { error } = await sb.from('feedback_videos').update({
+        dispute_response: response,
+        dispute_status: decision
+    }).eq('id', videoId);
+    
+    if (!error) {
+        const v = window._disputeVideos.find(v => v.id === videoId);
+        if (v) { v.dispute_response = response; v.dispute_status = decision; }
+        document.getElementById('disputeResponseModal').remove();
+        renderTrainerDisputes(window._disputeVideos, window._disputeFbMap, window._disputeProfMap);
+    }
 }
 
 function showEmailBanner(mailtoLink, collectorName) {
