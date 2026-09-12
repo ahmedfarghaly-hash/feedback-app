@@ -540,7 +540,11 @@ function renderTrainerFeedback() {
         const seenTag = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
         
         if (f._videos && f._videos.length > 0) {
-            f._videos.forEach(v => {
+            // Filter videos based on current filter
+            const videosToShow = S.filter === 'disputed' 
+                ? f._videos.filter(v => v.is_disputed)
+                : f._videos;
+            videosToShow.forEach(v => {
                 const dt = v.is_disputed 
                     ? '<span class="tag tag-d" title="' + (v.dispute_reason||'') + '">Disputed ⚠️</span>'
                     : '<span style="color:var(--text-dim)">—</span>';
