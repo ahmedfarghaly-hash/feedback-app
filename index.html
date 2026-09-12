@@ -222,6 +222,7 @@ function navHtml() {
         <button class="nav-link ${S.view==='trainer_feedback'?'active':''}" onclick="nav('trainer_feedback')">Feedback</button>
         <button class="nav-link ${S.view==='trainer_collectors'?'active':''}" onclick="nav('trainer_collectors')">Collectors</button>
         <button class="nav-link ${S.view==='trainer_profiles'?'active':''}" onclick="nav('trainer_profiles')">Profiles</button>
+        <button class="nav-link ${S.view==='trainer_analytics'?'active':''}" onclick="nav('trainer_analytics')">Analytics</button>
     ` : '';
     return `<nav class="nav">
         <div class="row"><span class="nav-brand">FEEDBACK</span><div class="nav-links">${links}</div></div>
@@ -237,6 +238,7 @@ function nav(view) {
     if (view === 'trainer_feedback') loadTrainerFeedback();
     else if (view === 'trainer_collectors') loadTrainerCollectors();
     else if (view === 'trainer_profiles') loadTrainerProfiles();
+    else if (view === 'trainer_analytics') loadTrainerAnalytics();
 }
 
 function logout() {
@@ -780,6 +782,134 @@ function clearFilters() {
     if(el('filterDateFrom')) el('filterDateFrom').value = '';
     if(el('filterDateTo')) el('filterDateTo').value = '';
     filterProfiles();
+}
+
+async function loadTrainerAnalytics() {
+    S.view = 'trainer_analytics';
+    el('app').innerHTML = navHtml() + '<div class="page-wide"><div class="loading">Loading...</div></div>';
+    const [allFbs, allCollectors] = await Promise.all([fetchAllFeedbacks(), fetchCollectors()]);
+    renderAnalytics(allFbs, allCollectors);
+}
+
+function renderAnalytics(allFbs, collectors) {
+    // Build team map
+    const teamMap = {};
+    collectors.forEach(c => {
+        if (!c.team) return;
+        if (!teamMap[c.team]) teamMap[c.team] = { total: 0, seen: 0, disputed: 0, collectors: 0 };
+        teamMap[c.team].collectors++;
+    });
+
+    allFbs.forEach(f => {
+        const collector = collectors.find(c => c.hr_code === f.collector_id);
+        if (!collector || !collector.team) return;
+        const t = teamMap[collector.team];
+        if (!t) return;
+        t.total++;
+        if (f.is_seen) t.seen++;
+        if (f.is_disputed) t.disputed++;
+    });
+
+    // Sort teams by total feedback
+    const teams = Object.entries(teamMap)
+        .filter(([k, v]) => v.total > 0)
+        .sort((a, b) => b[1].total - a[1].total);
+
+    const allTeams = Object.entries(teamMap).sort((a, b) => a[0].localeCompare(b[0]));
+
+    // Most common titles
+    const titleCount = {};
+    allFbs.forEach(f => {
+        if (f.feedback_title) {
+            titleCount[f.feedback_title] = (titleCount[f.feedback_title] || 0) + 1;
+        }
+    });
+    const topTitles = Object.entries(titleCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    // Max for bar scaling
+    const maxFb = Math.max(...allTeams.map(([k,v]) => v.total), 1);
+
+    const teamRows = allTeams.map(([team, data]) => {
+        const seenPct = data.total > 0 ? Math.round((data.seen / data.total) * 100) : 0;
+        const dispPct = data.total > 0 ? Math.round((data.disputed / data.total) * 100) : 0;
+        const barWidth = Math.round((data.total / maxFb) * 100);
+        return '<tr>' +
+            '<td style="font-weight:600;color:var(--accent)">' + team + '</td>' +
+            '<td>' +
+                '<div style="display:flex;align-items:center;gap:8px">' +
+                '<div style="flex:1;background:var(--border);border-radius:4px;height:8px;min-width:80px">' +
+                '<div style="width:' + barWidth + '%;background:var(--accent);height:8px;border-radius:4px"></div></div>' +
+                '<span style="font-size:13px;min-width:20px">' + data.total + '</span>' +
+                '</div>' +
+            '</td>' +
+            '<td>' +
+                '<span style="color:' + (seenPct >= 80 ? 'var(--green)' : seenPct >= 50 ? 'var(--accent)' : 'var(--dispute)') + ';font-weight:600">' + seenPct + '%</span>' +
+            '</td>' +
+            '<td>' +
+                '<span style="color:' + (dispPct > 0 ? 'var(--dispute)' : 'var(--text-muted)') + ';font-weight:600">' + dispPct + '%</span>' +
+            '</td>' +
+            '<td style="color:var(--text-muted)">' + data.collectors + '</td>' +
+            '</tr>';
+    }).join('');
+
+    const titlesHtml = topTitles.length > 0 ? topTitles.map(([title, count], i) => 
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">' +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+        '<span style="width:24px;height:24px;background:var(--accent-dim);color:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">' + (i+1) + '</span>' +
+        '<span style="font-size:13px">' + title + '</span>' +
+        '</div>' +
+        '<span class="tag tag-n">' + count + ' times</span>' +
+        '</div>'
+    ).join('') : '<div class="empty" style="padding:20px">No feedback titles yet</div>';
+
+    const totalFb = allFbs.length;
+    const totalSeen = allFbs.filter(f => f.is_seen).length;
+    const totalDisputed = allFbs.filter(f => f.is_disputed).length;
+    const activeTeams = teams.length;
+
+    el('app').innerHTML = navHtml() + `
+        <div class="page-wide">
+            <div class="ph"><div class="pt">Analytics</div><div class="ps">Team performance overview</div></div>
+            
+            <div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap">
+                <div class="card" style="min-width:140px;text-align:center;padding:20px;margin:0;flex:1">
+                    <div style="font-size:32px;font-weight:700">${totalFb}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">TOTAL FEEDBACK</div>
+                </div>
+                <div class="card" style="min-width:140px;text-align:center;padding:20px;margin:0;flex:1">
+                    <div style="font-size:32px;font-weight:700;color:var(--green)">${totalFb > 0 ? Math.round((totalSeen/totalFb)*100) : 0}%</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">SEEN RATE</div>
+                </div>
+                <div class="card" style="min-width:140px;text-align:center;padding:20px;margin:0;flex:1">
+                    <div style="font-size:32px;font-weight:700;color:var(--dispute)">${totalFb > 0 ? Math.round((totalDisputed/totalFb)*100) : 0}%</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">DISPUTE RATE</div>
+                </div>
+                <div class="card" style="min-width:140px;text-align:center;padding:20px;margin:0;flex:1">
+                    <div style="font-size:32px;font-weight:700;color:var(--accent)">${activeTeams}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">ACTIVE TEAMS</div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+                <div>
+                    <div class="st">Team Performance</div>
+                    <div class="tw">
+                        <table>
+                            <thead><tr>
+                                <th>TEAM</th><th>FEEDBACK</th><th>SEEN</th><th>DISPUTED</th><th>COLLECTORS</th>
+                            </tr></thead>
+                            <tbody>${teamRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div>
+                    <div class="st">Top Feedback Titles</div>
+                    <div class="card" style="padding:0 20px">
+                        ${titlesHtml}
+                    </div>
+                </div>
+            </div>
+        </div>`;
 }
 
 function showEmailBanner(mailtoLink, collectorName) {
