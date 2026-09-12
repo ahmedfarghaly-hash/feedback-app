@@ -351,10 +351,11 @@ async function loadCollector() {
     el('app').innerHTML = navHtml() + '<div class="page"><div class="loading">Loading...</div></div>';
     try {
         S.feedbacks = await fetchCollectorFeedbacks(S.user.hr_code);
+        renderCollector();
     } catch(e) {
-        S.feedbacks = [];
+        console.error('loadCollector error:', e);
+        el('app').innerHTML = navHtml() + '<div class="page"><div style="color:red;padding:20px">Error: ' + e.message + '</div></div>';
     }
-    renderCollector();
 }
 
 function renderCollector() {
@@ -402,7 +403,7 @@ function fbCard(f, isNew) {
                 '<span style="font-size:12px;font-weight:600;color:var(--text-muted)">VIDEO ' + (i+1) + '</span>' + vTag +
                 '</div>' +
                 '<iframe src="' + v.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen style="margin-bottom:0"></iframe>' +
-                vReason + vDispBtn2 +
+                vReason + vDispBtn +
                 '</div>';
         }).join('');
     } else if (f.video_url) {
