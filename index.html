@@ -373,7 +373,7 @@ function fbCard(f, isNew) {
                 '<span style="margin-left:auto;color:var(--accent);font-size:12px">Open ↗</span>' +
                 '</a>';
         } else {
-            video = \`<iframe src="\${f.video_url}" class="vframe" data-id="\${f.id}" data-seen="\${f.is_seen}" allowfullscreen></iframe>\`;
+            video = '<iframe src="' + f.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen></iframe>';
         }
     }
     const reason = f.is_disputed && f.dispute_reason ? `<div class="dr"><strong>Dispute reason:</strong> ${f.dispute_reason}</div>` : '';
