@@ -577,7 +577,8 @@ function renderTrainerFeedback() {
                     dt = '<span style="color:var(--text-dim)">—</span>';
                 }
                 rows += '<tr>' +
-                    '<td><span style="color:var(--text-muted);font-size:11px">' + trainerName + ' →</span> ' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
+                    '<td style="color:var(--accent);font-size:12px;font-weight:600">' + trainerName + '</td>' +
+                    '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
                     '<td>' + fmtDate(f.feedback_date) + '</td>' +
                     '<td style="color:var(--text-muted);font-size:12px">' + (v.video_title||'Video') + '</td>' +
                     '<td>' + seenTag + '</td>' +
@@ -596,7 +597,8 @@ function renderTrainerFeedback() {
                 dt = '<span style="color:var(--text-dim)">—</span>';
             }
             rows += '<tr>' +
-                '<td><span style="color:var(--text-muted);font-size:11px">' + trainerName + ' →</span> ' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
+                '<td style="color:var(--accent);font-size:12px;font-weight:600">' + trainerName + '</td>' +
+                '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
                 '<td>' + fmtDate(f.feedback_date) + '</td>' +
                 '<td style="color:var(--text-muted);font-size:12px">—</td>' +
                 '<td>' + seenTag + '</td>' +
@@ -640,7 +642,7 @@ function renderTrainerFeedback() {
                     <div class="fb-btns" style="display:flex;gap:6px;align-items:center">${filterBtns}${trainerFilterHtml}</div>
                 </div>
                 ${filtered.length === 0 ? '<div class="empty" style="padding:24px">No feedback found</div>'
-                    : '<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>VIDEO TITLE</th><th>STATUS</th><th>DISPUTE</th></tr></thead><tbody>' + rows + '</tbody></table></div>'}
+                    : '<div class="tw"><table><thead><tr><th>TRAINER</th><th>COLLECTOR</th><th>DATE</th><th>VIDEO TITLE</th><th>STATUS</th><th>DISPUTE</th></tr></thead><tbody>' + rows + '</tbody></table></div>'}
             </div>
         </div>`;
 }
@@ -1206,7 +1208,8 @@ function renderTrainerDisputes(videos, fbMap, profMap) {
             : '<span class="tag tag-d">Rejected</span>';
         
         return '<tr>' +
-            '<td><span style="color:var(--text-muted);font-size:11px">' + (fb.trainer_name||'—') + ' →</span> <span style="font-weight:600">' + (prof.full_name||'—') + '</span> <span style="color:var(--text-muted);font-size:11px">' + (fb.collector_id||'') + '</span></td>' +
+            '<td style="color:var(--accent);font-size:12px;font-weight:600">' + (fb.trainer_name||'—') + '</td>' +
+            '<td style="font-weight:600">' + (prof.full_name||'—') + ' <span style="color:var(--text-muted);font-size:11px">' + (fb.collector_id||'') + '</span></td>' +
             '<td>' + fmtDate(fb.feedback_date) + '</td>' +
             '<td style="color:var(--text-muted);font-size:12px">' + (v.video_title||'—') + '</td>' +
             '<td style="font-size:12px;color:var(--dispute)">' + (v.dispute_reason||'—') + '</td>' +
@@ -1219,7 +1222,7 @@ function renderTrainerDisputes(videos, fbMap, profMap) {
 
     const tableHtml = filtered.length === 0
         ? '<div class="empty" style="padding:24px">No disputes found</div>'
-        : '<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>VIDEO</th><th>REASON</th><th>STATUS</th><th>RESPONSE</th><th>WATCH</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        : '<div class="tw"><table><thead><tr><th>TRAINER</th><th>COLLECTOR</th><th>DATE</th><th>VIDEO</th><th>REASON</th><th>STATUS</th><th>RESPONSE</th><th>WATCH</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 
     el('app').innerHTML = navHtml() + `
         <div class="page-wide">
