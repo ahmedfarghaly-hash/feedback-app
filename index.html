@@ -236,6 +236,7 @@ async function doSendFeedback(collectorId, trainerName, date, videos, sessionTit
         feedback_id: fbData.id,
         video_url: convertDriveUrl(v.url),
         video_title: v.title || 'Video',
+        video_comment: v.comment || '',
         is_disputed: false, dispute_reason: ''
     }));
     const { error: vidError } = await sb.from('feedback_videos').insert(videoRows);
@@ -438,11 +439,13 @@ function fbCard(f, isNew) {
                 }
                 vReason = '<div class="dr" style="margin-top:6px"><strong>Your dispute:</strong> ' + v.dispute_reason + responseHtml + '</div>';
             }
-            const vTitle = v.video_title ? '<div style="font-size:13px;font-weight:600;margin-bottom:8px">' + v.video_title + '</div>' : '';
+            const vTitle = v.video_title ? '<div style="font-size:13px;font-weight:600;margin-bottom:6px">' + v.video_title + '</div>' : '';
+            const vComment = v.video_comment ? '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:8px 12px;background:var(--surface-hover);border-radius:6px;border-left:3px solid var(--accent)">' + v.video_comment + '</div>' : '';
             return '<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
                 vTitle + vTag +
                 '</div>' +
+                vComment +
                 '<iframe src="' + v.video_url + '" class="vframe" data-id="' + f.id + '" data-seen="' + f.is_seen + '" allowfullscreen style="margin-bottom:0"></iframe>' +
                 vReason + vDispBtn + '</div>';
         }).join('');
@@ -629,7 +632,9 @@ function renderTrainerFeedback() {
                         <label class="lbl">VIDEO 1 TITLE</label>
                         <input type="text" class="video-title-input" placeholder="e.g. Customer Objection Call" style="margin-bottom:6px" />
                         <label class="lbl">VIDEO 1 URL</label>
-                        <input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." />
+                        <input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." style="margin-bottom:6px" />
+                        <label class="lbl">COMMENT (optional)</label>
+                        <input type="text" class="video-comment-input" placeholder="Add a note about this video..." />
                     </div>
                 </div>
                 <button class="bs bs-outline" onclick="addVideoField()" style="margin-bottom:12px">+ Add Another Video</button>
@@ -704,7 +709,9 @@ function addVideoField() {
         '</div>' +
         '<input type="text" class="video-title-input" placeholder="e.g. Call Review" style="margin-bottom:6px" />' +
         '<label class="lbl">VIDEO ' + count + ' URL</label>' +
-        '<input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." />';
+        '<input type="text" class="video-url-input" placeholder="https://drive.google.com/file/d/..." style="margin-bottom:6px" />' +
+        '<label class="lbl">COMMENT (optional)</label>' +
+        '<input type="text" class="video-comment-input" placeholder="Add a note about this video..." />';
     container.appendChild(div);
 }
 
@@ -712,9 +719,11 @@ async function sendFb() {
     const col = _selectedCollectorHR, date = el('fbDate').value;
     const urlInputs = document.querySelectorAll('.video-url-input');
     const titleInputs = document.querySelectorAll('.video-title-input');
+    const commentInputs = document.querySelectorAll('.video-comment-input');
     const videos = Array.from(urlInputs).map((inp, i) => ({
         url: inp.value.trim(),
-        title: titleInputs[i] ? titleInputs[i].value.trim() : 'Video ' + (i+1)
+        title: titleInputs[i] ? titleInputs[i].value.trim() : 'Video ' + (i+1),
+        comment: commentInputs[i] ? commentInputs[i].value.trim() : ''
     })).filter(v => v.url);
     
     if (!col || !date) { el('fberr').textContent='Please select a collector and date'; show('fberr'); return; }
@@ -732,7 +741,7 @@ async function sendFb() {
         const collectorName = collector ? collector.full_name : col;
         const fbTitle = sessionTitle;
         
-        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; document.querySelectorAll('.video-url-input').forEach(i => i.value = ''); document.querySelectorAll('.video-title-input').forEach(i => i.value = '');
+        _selectedCollectorHR = ''; el('fbColSearch').value = ''; el('fbColSelected').style.display='none'; document.querySelectorAll('.video-url-input').forEach(i => i.value = ''); document.querySelectorAll('.video-title-input').forEach(i => i.value = ''); document.querySelectorAll('.video-comment-input').forEach(i => i.value = '');
         
         // Show success with email button
         const appUrl = 'https://ahmedfarghaly-hash.github.io/feedback-app/';
@@ -892,7 +901,7 @@ async function openCollectorProfile(hrCode) {
                 const videoLink = v.video_url ? '<a href="' + v.video_url + '" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none">▶ Watch</a>' : '<span style="color:var(--text-dim)">—</span>';
                 rows += '<tr>';
                 rows += '<td>' + fmtDate(f.feedback_date) + '</td>';
-                rows += '<td>' + (v.video_title || '—') + '</td>';
+                rows += '<td>' + (v.video_title || '—') + (v.video_comment ? '<br><span style="font-size:11px;color:var(--text-muted)">' + v.video_comment + '</span>' : '') + '</td>';
                 rows += '<td>' + (f.trainer_name || '—') + '</td>';
                 rows += '<td>' + seenTag + '</td>';
                 rows += '<td>' + dt + '</td>';
