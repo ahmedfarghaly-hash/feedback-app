@@ -546,24 +546,38 @@ function renderTrainerFeedback() {
         : S.filter === 'unseen' ? S.feedbacks.filter(f => !f.is_seen)
         : S.feedbacks.filter(f => f.is_disputed || (f._videos && f._videos.some(v => v.is_disputed)));
 
+    // Build trainer filter options
+    const trainerNames = [...new Set(S.feedbacks.map(f => f.trainer_name).filter(Boolean))];
+    const trainerFilterHtml = '<select id="trainerFilter" onchange="filterByTrainer(this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:12px;font-family:inherit;outline:none"><option value="">All Trainers</option>' + trainerNames.map(t => '<option value="' + t + '" ' + (S._trainerFilter===t?'selected':'') + '>' + t + '</option>').join('') + '</select>';
+    
+    const feedbacksToShow = S._trainerFilter ? filtered.filter(f => f.trainer_name === S._trainerFilter) : filtered;
+    
     let rows = '';
-    filtered.forEach(f => {
+    feedbacksToShow.forEach(f => {
         const p = f._profile;
         const name = p ? p.full_name : '—';
         const hr = p ? p.hr_code : '';
         const seenTag = f.is_seen ? '<span class="tag tag-s">Seen</span>' : '<span class="tag tag-n">Not Seen</span>';
+        const trainerName = f.trainer_name || '—';
         
         if (f._videos && f._videos.length > 0) {
-            // Filter videos based on current filter
             const videosToShow = S.filter === 'disputed' 
                 ? f._videos.filter(v => v.is_disputed)
                 : f._videos;
             videosToShow.forEach(v => {
-                const dt = v.is_disputed 
-                    ? '<span class="tag tag-d" title="' + (v.dispute_reason||'') + '">Disputed ⚠️</span>'
-                    : '<span style="color:var(--text-dim)">—</span>';
+                const isDisputed = v.is_disputed;
+                const isResponded = v.dispute_status && v.dispute_status !== 'pending';
+                let dt;
+                if (isDisputed && isResponded) {
+                    const icon = v.dispute_status === 'accepted' ? '✅' : '❌';
+                    dt = '<span class="tag tag-d">' + icon + ' Responded</span>';
+                } else if (isDisputed) {
+                    dt = '<span class="tag tag-d" title="' + (v.dispute_reason||'') + '">Disputed ⚠️</span>';
+                } else {
+                    dt = '<span style="color:var(--text-dim)">—</span>';
+                }
                 rows += '<tr>' +
-                    '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
+                    '<td><span style="color:var(--text-muted);font-size:11px">' + trainerName + ' →</span> ' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
                     '<td>' + fmtDate(f.feedback_date) + '</td>' +
                     '<td style="color:var(--text-muted);font-size:12px">' + (v.video_title||'Video') + '</td>' +
                     '<td>' + seenTag + '</td>' +
@@ -571,11 +585,18 @@ function renderTrainerFeedback() {
                     '</tr>';
             });
         } else {
-            const dt = f.is_disputed 
-                ? '<span class="tag tag-d">Disputed ⚠️</span>'
-                : '<span style="color:var(--text-dim)">—</span>';
+            const isResponded = f.dispute_status && f.dispute_status !== 'pending';
+            let dt;
+            if (f.is_disputed && isResponded) {
+                const icon = f.dispute_status === 'accepted' ? '✅' : '❌';
+                dt = '<span class="tag tag-d">' + icon + ' Responded</span>';
+            } else if (f.is_disputed) {
+                dt = '<span class="tag tag-d">Disputed ⚠️</span>';
+            } else {
+                dt = '<span style="color:var(--text-dim)">—</span>';
+            }
             rows += '<tr>' +
-                '<td>' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
+                '<td><span style="color:var(--text-muted);font-size:11px">' + trainerName + ' →</span> ' + name + ' <span style="color:var(--text-muted);font-size:11px">' + hr + '</span></td>' +
                 '<td>' + fmtDate(f.feedback_date) + '</td>' +
                 '<td style="color:var(--text-muted);font-size:12px">—</td>' +
                 '<td>' + seenTag + '</td>' +
@@ -615,8 +636,8 @@ function renderTrainerFeedback() {
             </div>
             <div style="margin-top:32px">
                 <div class="fr">
-                    <div class="st" style="margin:0">All Feedback (${S.feedbacks.reduce((s,f) => s + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0)})</div>
-                    <div class="fb-btns">${filterBtns}</div>
+                    <div class="st" style="margin:0">All Feedback (${feedbacksToShow.reduce((s,f) => s + (f._videos && f._videos.length > 0 ? f._videos.length : 1), 0)})</div>
+                    <div class="fb-btns" style="display:flex;gap:6px;align-items:center">${filterBtns}${trainerFilterHtml}</div>
                 </div>
                 ${filtered.length === 0 ? '<div class="empty" style="padding:24px">No feedback found</div>'
                     : '<div class="tw"><table><thead><tr><th>COLLECTOR</th><th>DATE</th><th>VIDEO TITLE</th><th>STATUS</th><th>DISPUTE</th></tr></thead><tbody>' + rows + '</tbody></table></div>'}
@@ -625,6 +646,7 @@ function renderTrainerFeedback() {
 }
 
 function setFilter(f) { S.filter = f; renderTrainerFeedback(); }
+function filterByTrainer(t) { S._trainerFilter = t; renderTrainerFeedback(); }
 
 let _selectedCollectorHR = '';
 
@@ -1157,10 +1179,17 @@ async function loadTrainerDisputes() {
 
 function renderTrainerDisputes(videos, fbMap, profMap) {
     const filter = S._disputeFilter || 'all';
-    const filtered = filter === 'all' ? videos
-        : filter === 'pending' ? videos.filter(v => !v.dispute_status || v.dispute_status === 'pending')
-        : filter === 'accepted' ? videos.filter(v => v.dispute_status === 'accepted')
-        : videos.filter(v => v.dispute_status === 'rejected');
+    const trainerFiltered = S._disputeTrainerFilter 
+        ? videos.filter(v => { const fb = fbMap[v.feedback_id]||{}; return fb.trainer_name === S._disputeTrainerFilter; })
+        : videos;
+    const filtered = filter === 'all' ? trainerFiltered
+        : filter === 'pending' ? trainerFiltered.filter(v => !v.dispute_status || v.dispute_status === 'pending')
+        : filter === 'accepted' ? trainerFiltered.filter(v => v.dispute_status === 'accepted')
+        : trainerFiltered.filter(v => v.dispute_status === 'rejected');
+
+    // Build trainer filter
+    const disputeTrainers = [...new Set(videos.map(v => { const fb = fbMap[v.feedback_id]||{}; return fb.trainer_name; }).filter(Boolean))];
+    const trainerDisputeFilter = '<select onchange="setDisputeTrainerFilter(this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:12px;font-family:inherit;outline:none"><option value="">All Trainers</option>' + disputeTrainers.map(t => '<option value="' + t + '" ' + (S._disputeTrainerFilter===t?'selected':'') + '>' + t + '</option>').join('') + '</select>';
 
     const filterBtns = ['all','pending','accepted','rejected'].map(f =>
         '<button class="bs bs-outline ' + (filter===f?'active':'') + '" onclick="setDisputeFilter(this.dataset.f)" data-f="' + f + '">' +
@@ -1177,7 +1206,7 @@ function renderTrainerDisputes(videos, fbMap, profMap) {
             : '<span class="tag tag-d">Rejected</span>';
         
         return '<tr>' +
-            '<td style="font-weight:600">' + (prof.full_name||'—') + ' <span style="color:var(--text-muted);font-size:11px">' + (fb.collector_id||'') + '</span></td>' +
+            '<td><span style="color:var(--text-muted);font-size:11px">' + (fb.trainer_name||'—') + ' →</span> <span style="font-weight:600">' + (prof.full_name||'—') + '</span> <span style="color:var(--text-muted);font-size:11px">' + (fb.collector_id||'') + '</span></td>' +
             '<td>' + fmtDate(fb.feedback_date) + '</td>' +
             '<td style="color:var(--text-muted);font-size:12px">' + (v.video_title||'—') + '</td>' +
             '<td style="font-size:12px;color:var(--dispute)">' + (v.dispute_reason||'—') + '</td>' +
@@ -1196,7 +1225,7 @@ function renderTrainerDisputes(videos, fbMap, profMap) {
         <div class="page-wide">
             <div class="ph"><div class="pt">Disputes</div><div class="ps">${filtered.length} dispute${filtered.length!==1?'s':''}</div></div>
             <div class="fr" style="margin-bottom:16px">
-                <div class="fb-btns">${filterBtns}</div>
+                <div class="fb-btns" style="display:flex;gap:6px;align-items:center">${filterBtns}${trainerDisputeFilter}</div>
             </div>
             ${tableHtml}
         </div>`;
@@ -1209,6 +1238,11 @@ function renderTrainerDisputes(videos, fbMap, profMap) {
 
 function setDisputeFilter(f) {
     S._disputeFilter = f;
+    renderTrainerDisputes(window._disputeVideos, window._disputeFbMap, window._disputeProfMap);
+}
+
+function setDisputeTrainerFilter(t) {
+    S._disputeTrainerFilter = t;
     renderTrainerDisputes(window._disputeVideos, window._disputeFbMap, window._disputeProfMap);
 }
 
